@@ -1,0 +1,16 @@
+[
+  {
+    "id": "TKT-2026-TEST",
+    "clientName": "Test Pharmacy",
+    "clientId": "TE-101",
+    "issueCategory": "Technical Escalation",
+    "issueDescription": "Sync test verification",
+    "priority": "High",
+    "status": "In Progress",
+    "assignedExecutive": "Umar Farooq",
+    "createdBy": "Operation Manager",
+    "raisedFrom": "Operation Manager",
+    "raisedTo": "COO",
+    "updatedAt": "2026-10-20T17:21:21.872Z"
+  }
+]

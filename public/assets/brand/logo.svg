@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="100%" height="100%">
+  <!-- Background -->
+  <rect width="1000" height="1000" fill="#ffffff" rx="160" />
+  
+  <g transform="translate(100, 360)">
+    <!-- 4x4 Dot Matrix Grid -->
+    <!-- Col 1: Dark Blue -->
+    <circle cx="35" cy="35" r="22" fill="#0074c8" />
+    <circle cx="35" cy="105" r="22" fill="#0074c8" />
+    <circle cx="35" cy="175" r="22" fill="#0074c8" />
+    <circle cx="35" cy="245" r="22" fill="#0074c8" />
+    <circle cx="35" cy="315" r="22" fill="#0074c8" />
+    
+    <!-- Col 2: Blue & Green -->
+    <circle cx="105" cy="35" r="22" fill="#0074c8" />
+    <circle cx="105" cy="105" r="22" fill="#00a859" />
+    <circle cx="105" cy="175" r="22" fill="#0074c8" />
+    <circle cx="105" cy="245" r="22" fill="#00a859" />
+    <circle cx="105" cy="315" r="22" fill="#0074c8" />
+
+    <!-- Col 3: Green & Blue -->
+    <circle cx="175" cy="35" r="22" fill="#0074c8" />
+    <circle cx="175" cy="105" r="22" fill="#00a859" />
+    <circle cx="175" cy="175" r="22" fill="#0074c8" />
+    <circle cx="175" cy="245" r="22" fill="#00a859" />
+    <circle cx="175" cy="315" r="22" fill="#0074c8" />
+
+    <!-- Col 4: Blue & Green -->
+    <circle cx="245" cy="35" r="22" fill="#0074c8" />
+    <circle cx="245" cy="105" r="22" fill="#00a859" />
+    <circle cx="245" cy="175" r="22" fill="#0074c8" />
+    <circle cx="245" cy="245" r="22" fill="#00a859" />
+    <circle cx="245" cy="315" r="22" fill="#0074c8" />
+
+    <!-- Brand Typography -->
+    <!-- TECHNO -->
+    <text x="340" y="65" font-family="'Inter', 'Montserrat', 'Segoe UI', sans-serif" font-size="64" font-weight="400" letter-spacing="14" fill="#231f20">TECHNO</text>
+    
+    <!-- Evident -->
+    <text x="336" y="210" font-family="'Inter', 'Segoe UI', sans-serif" font-size="142" font-weight="900" letter-spacing="-2" fill="#0073c6">Evident</text>
+    
+    <!-- Tagline: Solutions for nonprofit organizations -->
+    <text x="338" y="280" font-family="'Inter', 'Georgia', italic, sans-serif" font-size="34" font-style="italic" font-weight="500" fill="#231f20">Solutions for nonprofit organizations</text>
+  </g>
+</svg>

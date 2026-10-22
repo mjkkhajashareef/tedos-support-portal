@@ -1,0 +1,15 @@
+[
+  {
+    "id": "msg-welcome-001",
+    "senderId": "usr-director-philsof",
+    "senderName": "Techno Admin",
+    "senderRole": "Director",
+    "recipientId": "ALL",
+    "recipientName": "All Support Staff (تمام ملازمین)",
+    "subject": "Welcome to TEDOS Support Portal & Client Software Workflow",
+    "body": "السلام علیکم تمام سپورٹ ٹیم ممبران! تمام کلائنٹس کے سافٹ ویئر پورٹل لنکس ڈائریکٹری اور ڈیلی ورک لاگ میں لائیو کر دیے گئے ہیں۔ کال یا میٹنگ لاگ کرتے وقت کلائنٹ سافٹ ویئر کا معائنہ لازمی کریں اور سیشن کے بعد شفٹ سمری واٹس ایپ گروپ میں شیئر کریں۔",
+    "priority": "Important",
+    "timestamp": "2026-10-10T08:00:00.000Z",
+    "read": false
+  }
+]

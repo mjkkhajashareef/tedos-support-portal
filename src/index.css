@@ -1,0 +1,173 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Jameel Noori Nastaleeq';
+  src: url('https://cdn.jsdelivr.net/gh/urdutext/fonts@main/fonts/Jameel%20Noori%20Nastaleeq.woff2') format('woff2'),
+       url('https://cdn.jsdelivr.net/gh/urdutext/fonts@main/fonts/Jameel%20Noori%20Nastaleeq.woff') format('woff'),
+       url('https://cdn.jsdelivr.net/gh/urdutext/fonts@main/fonts/Jameel%20Noori%20Nastaleeq.ttf') format('truetype'),
+       local('Jameel Noori Nastaleeq'),
+       local('Jameel Noori Nastaleeq Regular'),
+       local('JameelNooriNastaleeq');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Jameel Noori Nastaleeq Kasheeda';
+  src: url('https://cdn.jsdelivr.net/gh/urdutext/fonts@main/fonts/Jameel%20Noori%20Nastaleeq%20Kasheeda.woff2') format('woff2'),
+       url('https://cdn.jsdelivr.net/gh/urdutext/fonts@main/fonts/Jameel%20Noori%20Nastaleeq%20Kasheeda.ttf') format('truetype'),
+       local('Jameel Noori Nastaleeq Kasheeda');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-nastaleeq: "Jameel Noori Nastaleeq", "Noto Nastaliq Urdu", "Urdu Typesetting", "Gulzar", serif;
+  
+  /* Techno Evident Blue-Green & Clean Light Theme Tokens */
+  --color-md-primary: #0062a3;
+  --color-md-on-primary: #ffffff;
+  --color-md-primary-container: #e0f2fe;
+  --color-md-on-primary-container: #001f3f;
+  
+  --color-md-secondary: #00a859;
+  --color-md-on-secondary: #ffffff;
+  --color-md-secondary-container: #dcfce7;
+  --color-md-on-secondary-container: #003919;
+  
+  --color-md-tertiary: #0284c7;
+  --color-md-on-tertiary: #ffffff;
+  --color-md-tertiary-container: #e0f2fe;
+  --color-md-on-tertiary-container: #082f49;
+
+  --color-md-error: #ba1a1a;
+  --color-md-on-error: #ffffff;
+  --color-md-error-container: #ffdad6;
+  --color-md-on-error-container: #410002;
+  
+  --color-md-background: #f8fafc;
+  --color-md-on-background: #0f172a;
+  
+  --color-md-surface: #ffffff;
+  --color-md-on-surface: #0f172a;
+  --color-md-surface-variant: #e2e8f0;
+  --color-md-on-surface-variant: #334155;
+  --color-md-outline: #64748b;
+  
+  --color-md-surface-container-lowest: #ffffff;
+  --color-md-surface-container-low: #f8fafc;
+  --color-md-surface-container: #f1f5f9;
+  --color-md-surface-container-high: #e2e8f0;
+  --color-md-surface-container-highest: #cbd5e1;
+
+  --animate-fade-in: fade-in 0.3s ease-out;
+  --animate-slide-up: slide-up 0.3s cubic-bezier(0, 0, 0.2, 1);
+  --animate-slide-in: slide-in 0.25s cubic-bezier(0, 0, 0.2, 1);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* Base resets & styles for a premium touch experience */
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-md-background);
+  color: var(--color-md-on-background);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  overflow-x: hidden;
+}
+
+/* English Typography (Requirement #7: Modern clean font without affecting Urdu) */
+html[lang="en"],
+html[dir="ltr"],
+body.lang-en,
+html[lang="en"] * {
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* 100% Urdu Nastaleeq Typography - Untouched for Urdu */
+html[lang="ur"],
+html[dir="rtl"],
+body.lang-ur,
+.font-nastaleeq,
+html[lang="ur"] * {
+  font-family: var(--font-nastaleeq);
+}
+
+html[lang="ur"] body,
+body.lang-ur {
+  font-family: var(--font-nastaleeq);
+  line-height: 1.9;
+}
+
+/* Nastaleeq heading and button tuning */
+html[lang="ur"] h1,
+html[lang="ur"] h2,
+html[lang="ur"] h3,
+html[lang="ur"] h4,
+html[lang="ur"] h5,
+html[lang="ur"] h6 {
+  font-family: var(--font-nastaleeq);
+  line-height: 1.8;
+}
+
+html[lang="ur"] button,
+html[lang="ur"] input,
+html[lang="ur"] select,
+html[lang="ur"] textarea,
+html[lang="ur"] label,
+html[lang="ur"] span,
+html[lang="ur"] p {
+  font-family: var(--font-nastaleeq), var(--font-sans);
+}
+
+/* Dropdown styling: Black text, clean white background ("dropdown black") */
+select,
+option {
+  color: #000000 !important;
+  background-color: #ffffff !important;
+}
+
+/* Numbers & code retain clean monospace or tabular display */
+html[lang="ur"] .font-mono,
+html[lang="ur"] code,
+html[lang="ur"] pre {
+  font-family: var(--font-mono) !important;
+  direction: ltr;
+}
+
+/* Material scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-md-surface-variant);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-md-outline);
+}
+

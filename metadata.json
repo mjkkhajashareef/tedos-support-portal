@@ -1,0 +1,6 @@
+{
+  "name": "TEDOS Support",
+  "description": "Techno Evident Digital Operating System - Support Module. Designed for mobile-first enterprise support executive operations with Material Design 3.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

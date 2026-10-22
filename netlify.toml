@@ -1,0 +1,14 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/api/proxy*"
+  to = "https://script.google.com/macros/s/AKfycbxhbrnIQMIFHpZGXxq2Q2xnPJLPQtnCpDbDXFIOBPeWo6vulj2jEiWWrVlonr6dHa_M/exec"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
