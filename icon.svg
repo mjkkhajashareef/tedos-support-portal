@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0062a3" />
+      <stop offset="100%" stop-color="#003566" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.3" />
+    </filter>
+  </defs>
+
+  <!-- Base Rounded Background -->
+  <rect width="512" height="512" rx="110" fill="url(#bgGrad)" />
+
+  <!-- Inner Soft Card -->
+  <rect x="36" y="36" width="440" height="440" rx="90" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.15" stroke-width="3" />
+
+  <!-- Icon Graphics Group -->
+  <g transform="translate(106, 106)" filter="url(#shadow)">
+    <!-- 4x4 Dot Matrix Icon Representation -->
+    <!-- Col 1 -->
+    <circle cx="25" cy="25" r="18" fill="#38bdf8" />
+    <circle cx="25" cy="80" r="18" fill="#38bdf8" />
+    <circle cx="25" cy="135" r="18" fill="#38bdf8" />
+    <circle cx="25" cy="190" r="18" fill="#38bdf8" />
+    <circle cx="25" cy="245" r="18" fill="#38bdf8" />
+
+    <!-- Col 2 -->
+    <circle cx="80" cy="25" r="18" fill="#38bdf8" />
+    <circle cx="80" cy="80" r="18" fill="#10b981" />
+    <circle cx="80" cy="135" r="18" fill="#38bdf8" />
+    <circle cx="80" cy="190" r="18" fill="#10b981" />
+    <circle cx="80" cy="245" r="18" fill="#38bdf8" />
+
+    <!-- Col 3 -->
+    <circle cx="135" cy="25" r="18" fill="#38bdf8" />
+    <circle cx="135" cy="80" r="18" fill="#10b981" />
+    <circle cx="135" cy="135" r="18" fill="#38bdf8" />
+    <circle cx="135" cy="190" r="18" fill="#10b981" />
+    <circle cx="135" cy="245" r="18" fill="#38bdf8" />
+
+    <!-- Col 4 -->
+    <circle cx="190" cy="25" r="18" fill="#38bdf8" />
+    <circle cx="190" cy="80" r="18" fill="#10b981" />
+    <circle cx="190" cy="135" r="18" fill="#38bdf8" />
+    <circle cx="190" cy="245" r="18" fill="#38bdf8" />
+
+    <!-- TEDOS Monogram Overlay -->
+    <g transform="translate(145, 140)">
+      <rect x="0" y="0" width="145" height="125" rx="24" fill="#ffffff" />
+      <text x="72" y="58" font-family="'Inter', sans-serif" font-size="42" font-weight="900" text-anchor="middle" fill="#0062a3">TE</text>
+      <text x="72" y="98" font-family="'Inter', sans-serif" font-size="22" font-weight="800" text-anchor="middle" fill="#10b981" letter-spacing="3">DOS</text>
+    </g>
+  </g>
+</svg>
