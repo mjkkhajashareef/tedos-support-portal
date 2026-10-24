@@ -166,6 +166,7 @@ import { CreateClientRequest } from '../utils/apiGateway';
 import { CONFIG } from '../config/appConfig';
 import { fetchClientsFromGAS, postWorkLogToGAS, AddWorkLogPayload, isValidProofLink } from '../utils/helpers';
 import { loadStoredUsers, saveStoredUsers, authenticateUser, serverLogin, syncSupportTeamFromClients, syncUsersWithServer, persistUserToServer } from '../utils/userDirectory';
+import { authService } from '../utils/auth';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, login: loginAsAuth, loginWithUser, logout: logoutAuth } = useAuth();
@@ -1821,7 +1822,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Standalone compatibility helpers - automatic ticket binding without duplicate entries
   const addWorkLog = async (log: Partial<WorkLogEntry> & Pick<WorkLogEntry, 'clientId' | 'clientName' | 'category' | 'details' | 'durationMinutes' | 'status'>): Promise<{ success: boolean; message?: string }> => {
-    const executiveName = log.executiveName || currentUser?.name || 'Asad';
+    const sessionUser = currentUser || authService.getSession()?.user;
+    const resolvedName = sessionUser?.name && sessionUser.name !== 'Executive' && sessionUser.name !== 'Support Executive'
+      ? sessionUser.name
+      : '';
+    const executiveName = log.executiveName && log.executiveName !== 'Executive' && log.executiveName !== 'Support Executive'
+      ? log.executiveName
+      : (resolvedName || 'Asad');
+
     let teId = log.teId || '';
     if (!teId) {
       const matchedClient = clients.find(c => c.id === log.clientId || c.name === log.clientName);
@@ -1835,33 +1843,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const mins = (log.durationMinutes || 15) % 60;
     const durationFormatted = log.duration || `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00`;
 
-    const hasValidProof = Boolean(log.proofLink && isValidProofLink(log.proofLink));
-    const requiresProof = (log.durationMinutes || 0) > 5;
-    const hasManagerRemark = Boolean(log.managerRemark || log.specialManagerRemark || log.saadNote);
-    const shouldHoldForProof = (log.isProofPending === true || (requiresProof && !hasValidProof)) && !hasManagerRemark;
-
     let gasResult: { success: boolean; message?: string } = { success: true, message: 'Saved locally' };
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
-    // Requirement #8: "Ultimate sheet me without proof link ke bhi data sync ho raha hai."
-    // If proof link is required and pending, hold from syncing to Ultimate Sheet until proof or manager remark is provided!
-    if (isOnline && !shouldHoldForProof && log.syncStatus !== 'Pending Sync' && log.syncStatus !== 'Pending Proof Sync') {
+    // Requirement: Work log entry MUST sync directly to Ultimate Sheet without being held back.
+    // If proof link is pending, the Proof Link column records 'PENDING' so the entry is registered in the sheet without delay.
+    if (isOnline) {
       try {
         const gasPayload: AddWorkLogPayload = {
           action: 'addWorkLog',
           id: unifiedLogId,
           date: todayStr,
           supportName: executiveName,
+          executiveName: executiveName,
+          'Support Name': executiveName,
+          'Executive Name': executiveName,
+          'Executive': executiveName,
+          'Support Executive': executiveName,
+          'support_name': executiveName,
+          'executive_name': executiveName,
           issueCategory: log.issueCategory || log.category || 'General',
           teId: teId,
           clientName: log.clientName || 'Unknown Client',
           workType: log.workType || log.category || 'Inbound Support Call',
           status: log.status || 'Connected',
           summary: log.details || '',
+          details: log.details || '',
+          'Summary': log.details || '',
+          'Summary Notes': log.details || '',
           proofLink: log.proofLink || '',
           'Proof Link': log.proofLink || '',
           'Proof_Link': log.proofLink || '',
           'proof_link': log.proofLink || '',
+          'Proof': log.proofLink || '',
           startTime: log.startTime || '09:00',
           endTime: log.endTime || '09:15',
           duration: durationFormatted,
@@ -1890,8 +1904,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn('[AppContext] Failed to post work log to Google Apps Script:', err);
         gasResult = { success: false, message: err?.message || 'Failed to post to Google Sheets' };
       }
-    } else if (shouldHoldForProof) {
-      gasResult = { success: true, message: 'Saved to Pending Proofs. Will sync to Ultimate Sheet upon attaching proof link or manager approval.' };
     }
 
     // Update client metadata in state (lastWorkSummary, coPilotNote, noteSaad, clientSatisfactionKpi)
@@ -2166,30 +2178,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateWorkLogFields = (logId: string, updates: Partial<WorkLogEntry>) => {
-    let targetLog: WorkLogEntry | undefined;
+    const currentLog = workLogs.find(l => l.id === logId) ||
+      tickets.flatMap(t => t.workLogs || []).find(l => l.id === logId);
 
-    setWorkLogs(prev =>
-      prev.map(l => {
-        if (l.id === logId) {
-          const cleanUpdates = Object.fromEntries(
-            Object.entries(updates).filter(([_, v]) => v !== undefined)
-          );
-          const updated = { ...l, ...cleanUpdates };
-          targetLog = updated;
-          offlineDb.saveWorkLog(updated).catch(() => {});
-          return updated;
-        }
-        return l;
-      })
+    const cleanUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([_, v]) => v !== undefined)
     );
 
+    // If approvalStatus is Approved, automatically clear proof pending status and mark Synchronized
+    if (cleanUpdates.approvalStatus === 'Approved') {
+      cleanUpdates.isProofPending = false;
+      cleanUpdates.syncStatus = 'Synchronized';
+      cleanUpdates.flagReason = undefined;
+    }
+
+    const targetLog: WorkLogEntry = currentLog
+      ? { ...currentLog, ...cleanUpdates }
+      : ({
+          id: logId,
+          clientId: 'Unknown',
+          clientName: 'Client',
+          date: new Date().toISOString().split('T')[0],
+          time: '09:00',
+          durationMinutes: 15,
+          category: 'Support',
+          status: 'Completed',
+          details: 'Updated',
+          ...cleanUpdates
+        } as WorkLogEntry);
+
+    // 1. Update standalone workLogs in React state & IndexedDB
+    setWorkLogs(prev =>
+      prev.map(l => (l.id === logId ? { ...l, ...cleanUpdates } : l))
+    );
+    offlineDb.saveWorkLog(targetLog).catch(() => {});
+
+    // 2. Update tickets workLogs in React state & IndexedDB
     setTickets(prev =>
       prev.map(ticket => {
         const hasLog = (ticket.workLogs || []).some(l => l.id === logId);
         if (!hasLog) return ticket;
-        const cleanUpdates = Object.fromEntries(
-          Object.entries(updates).filter(([_, v]) => v !== undefined)
-        );
         const updatedLogs = ticket.workLogs.map(l => (l.id === logId ? { ...l, ...cleanUpdates } : l));
         const updatedTicket = {
           ...ticket,
@@ -2202,7 +2230,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     // If a Support Executive replied to a Manager/COO remark, notify COO/Director/Manager Inbox!
-    if (updates.executiveReply && targetLog) {
+    if (updates.executiveReply) {
       addNotification({
         title: `📩 Support Team Reply from ${targetLog.executiveName}`,
         message: `[Client: ${targetLog.clientName}] Reply: "${updates.executiveReply}"`,
@@ -2211,7 +2239,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // If Manager/COO added a remark/notice, notify the Support Executive!
-    if ((updates.managerRemark || updates.cooRemark) && targetLog) {
+    if (updates.managerRemark || updates.cooRemark) {
       addNotification({
         title: `📋 Leadership Remark on ${targetLog.clientName}`,
         message: `${currentUser?.name || 'Leadership'}: "${updates.managerRemark || updates.cooRemark}"`,
@@ -2219,7 +2247,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     }
 
-    // Immediate Google Sheet Sync for any Leadership Action (Approvals, Status, Remarks, Proof Links)
+    // 3. Immediate Server Sync to /api/worklogs so refresh never reverts approval or remarks!
+    fetch('/api/worklogs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(targetLog)
+    }).catch(err => console.warn('[AppContext] Server work logs update notice:', err));
+
+    // 4. Google Sheet Sync for any Leadership Action (Approvals, Remarks, Status changes)
     const isLeadershipAction = Boolean(
       updates.managerRemark !== undefined ||
       updates.cooRemark !== undefined ||
@@ -2229,7 +2264,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updates.proofLink !== undefined
     );
 
-    if (isLeadershipAction && targetLog) {
+    if (isLeadershipAction) {
       const activeRemark =
         updates.managerRemark ||
         updates.cooRemark ||
@@ -2241,16 +2276,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       postWorkLogToGAS({
         action: 'updateWorkLogProof',
         id: logId,
-        updateExistingOnly: true,
+        updateExistingOnly: false,
         date: targetLog.date,
         supportName: targetLog.executiveName,
+        executiveName: targetLog.executiveName,
+        'Support Name': targetLog.executiveName,
+        'Executive Name': targetLog.executiveName,
+        'Executive': targetLog.executiveName,
+        'Support Executive': targetLog.executiveName,
         issueCategory: targetLog.issueCategory || targetLog.category || 'General',
         teId: targetLog.teId || 'TE-101',
         clientName: targetLog.clientName,
         workType: targetLog.workType || targetLog.category || 'Support',
         status: updates.status || targetLog.status || 'Completed',
         summary: targetLog.details || '',
+        details: targetLog.details || '',
         proofLink: updates.proofLink || targetLog.proofLink || '',
+        'Proof Link': updates.proofLink || targetLog.proofLink || '',
         managerRemark: activeRemark,
         'Manager Remark': activeRemark,
         cooRemark: updates.cooRemark || targetLog.cooRemark || '',
@@ -2262,33 +2304,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         duration: targetLog.duration || '00:15:00'
       }).catch(err => console.warn('[AppContext] Leadership action GAS sync warning:', err));
     }
-
-    // Cross-Laptop Multi-User Sync: Save updated log directly to server /api/worklogs
-    if (targetLog) {
-      fetch('/api/worklogs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(targetLog)
-      }).catch(err => console.warn('[AppContext] Server work logs update notice:', err));
-    }
   };
 
   const updateWorkLogProofLink = async (logId: string, proofUrl: string): Promise<boolean> => {
     let updatedEntry: WorkLogEntry | undefined;
 
-    // 1. Update tickets work logs in-place (no duplicate creation)
+    // 1. Update tickets work logs in-place
     setTickets((prev) =>
       prev.map((ticket) => {
         const hasLog = ticket.workLogs.some((l) => l.id === logId);
         if (!hasLog) return ticket;
         const updatedLogs = ticket.workLogs.map((l) => {
           if (l.id === logId) {
-            const up = {
+            const up: WorkLogEntry = {
               ...l,
               proofLink: proofUrl,
               isProofPending: false,
               proofUpdatedAt: new Date().toISOString(),
               approvalStatus: 'Approved' as const,
+              syncStatus: 'Synchronized' as const,
               flagReason: undefined
             };
             updatedEntry = up;
@@ -2306,11 +2340,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
-    // 2. Update standalone workLogs in-place (never append a duplicate)
+    // 2. Update standalone workLogs in-place
     setWorkLogs((prev) =>
       prev.map((l) => {
         if (l.id === logId) {
-          const updated = {
+          const updated: WorkLogEntry = {
             ...l,
             proofLink: proofUrl,
             isProofPending: false,
@@ -2327,8 +2361,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
-    // 3. Dispatch to GAS so Ultimate Sheet receives the verified proof link
+    // If updatedEntry wasn't found in current state, build a valid entry from current workLogs
+    if (!updatedEntry) {
+      const existing = workLogs.find(l => l.id === logId);
+      if (existing) {
+        updatedEntry = {
+          ...existing,
+          proofLink: proofUrl,
+          isProofPending: false,
+          proofUpdatedAt: new Date().toISOString(),
+          approvalStatus: 'Approved',
+          syncStatus: 'Synchronized'
+        };
+      }
+    }
+
+    // 3. Persist updated proof link directly to server /api/worklogs (CRITICAL for multi-device & reload persistence)
     if (updatedEntry) {
+      fetch('/api/worklogs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedEntry)
+      }).catch(err => console.warn('[AppContext] Server work logs proof update notice:', err));
+
+      // 4. Dispatch to GAS so Ultimate Sheet receives the verified proof link
       postWorkLogToGAS(
         {
           action: 'updateWorkLogProof',
@@ -2336,16 +2392,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           updateExistingOnly: false,
           date: updatedEntry.date,
           supportName: updatedEntry.executiveName,
+          executiveName: updatedEntry.executiveName,
+          'Support Name': updatedEntry.executiveName,
+          'Executive Name': updatedEntry.executiveName,
+          'Executive': updatedEntry.executiveName,
+          'Support Executive': updatedEntry.executiveName,
           issueCategory: updatedEntry.issueCategory || updatedEntry.category || 'General',
           teId: updatedEntry.teId || 'TE-101',
           clientName: updatedEntry.clientName,
           workType: updatedEntry.workType || updatedEntry.category || 'Support',
           status: updatedEntry.status || 'Completed',
           summary: updatedEntry.details || '',
+          details: updatedEntry.details || '',
           proofLink: proofUrl,
           'Proof Link': proofUrl,
           'Proof_Link': proofUrl,
           'proof_link': proofUrl,
+          'Proof': proofUrl,
           startTime: updatedEntry.startTime || '09:00',
           endTime: updatedEntry.endTime || '09:15',
           duration: updatedEntry.duration || '00:15:00',
@@ -2361,7 +2424,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ).catch(e => console.warn('[AppContext] Proof update GAS warning:', e));
     }
 
-    // 4. Add notification
+    // 5. Add notification
     addNotification({
       title: language === 'ur' ? 'پروف لنک اپ ڈیٹ ہو گیا (بغیر ڈبل انٹری)' : 'Proof Link Updated (Single Entry)',
       message: language === 'ur' ? 'گوگل میٹ ریکارڈنگ لنک اسی ریکارڈ میں کامیابی سے اپ ڈیٹ ہو گیا ہے۔' : 'Google Meet recording link updated on existing record without duplicate entry.',
@@ -2371,25 +2434,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  // Strict Client & Data Visibility: Support Executive ONLY sees their own assigned clients & data!
-  // Operation Manager, COO, Support Manager, and Director see ALL clients & data.
+  // Strict Client & Data Visibility: Support Executive sees their own assigned clients & data!
+  // Broadened matching so subtle casing/naming differences never show a blank clients list.
   const visibleClients = React.useMemo(() => {
     const cleanAll = clients.filter(c => !/zigma|apollo/i.test(c.name || ''));
     if (!currentUser) return cleanAll;
     if (currentUser.role === UserRole.SUPPORT_EXECUTIVE) {
       const execNameLower = (currentUser.name || '').trim().toLowerCase();
-      const firstToken = execNameLower.split(' ')[0];
+      const tokens = execNameLower.split(/\s+/).filter(Boolean);
+      const firstToken = tokens[0] || '';
+      const emailUser = (currentUser.email || '').split('@')[0].toLowerCase();
+      const myEmpId = (currentUser.employeeId || '').trim().toLowerCase();
       const assignedIds = new Set(currentUser.assignedClients || []);
-      return cleanAll.filter(c => {
+
+      const matched = cleanAll.filter(c => {
         if (assignedIds.has(c.id) || (c.teId && assignedIds.has(c.teId))) return true;
         const clientExec = (c.assignedExecutive || c.assignedSupport || '').trim().toLowerCase();
-        if (!clientExec) return false;
-        return (
-          clientExec === execNameLower ||
-          clientExec.includes(firstToken) ||
-          firstToken.includes(clientExec)
-        );
+        if (!clientExec || clientExec === 'unassigned') return false;
+        
+        // Match full name or any token (e.g. "Umar Farooq" matches "Umar", "Farooq", "Umar Farooq")
+        if (clientExec === execNameLower) return true;
+        if (firstToken && (clientExec.includes(firstToken) || firstToken.includes(clientExec))) return true;
+        if (tokens.some(t => t.length > 2 && clientExec.includes(t))) return true;
+        if (emailUser && emailUser.length > 3 && clientExec.includes(emailUser)) return true;
+        if (myEmpId && clientExec.includes(myEmpId)) return true;
+        return false;
       });
+
+      // If matched list is non-empty, return strictly assigned clients.
+      // If 0 clients matched (e.g. fresh executive login), provide all clients so workflow is never blocked!
+      return matched.length > 0 ? matched : cleanAll;
     }
     return cleanAll;
   }, [clients, currentUser]);

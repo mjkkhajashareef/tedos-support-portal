@@ -130,11 +130,18 @@ export const COODashboardView: React.FC = () => {
     const TARGET_MINUTES = 420; // 7 Hours
 
     return supportExecutives.map((exec) => {
-      const logsToday = filteredWorkLogs.filter(
-        (log) =>
-          (log.executiveName || '').toLowerCase().includes(exec.name.toLowerCase()) ||
-          (log.supportName || '').toLowerCase().includes(exec.name.toLowerCase())
-      );
+      const execTokens = exec.name.toLowerCase().split(/\s+/).filter(Boolean);
+      const firstToken = execTokens[0] || '';
+      const empId = (exec.employeeId || '').toLowerCase().trim();
+
+      const logsToday = filteredWorkLogs.filter((log) => {
+        const logExec = (log.executiveName || log.supportName || '').toLowerCase().trim();
+        if (!logExec) return false;
+        if (logExec.includes(exec.name.toLowerCase()) || exec.name.toLowerCase().includes(logExec)) return true;
+        if (firstToken && (logExec.includes(firstToken) || firstToken.includes(logExec))) return true;
+        if (empId && log.teId && log.teId.toLowerCase().trim() === empId) return true;
+        return false;
+      });
 
       const totalMinutes = logsToday.reduce((sum, log) => sum + (log.durationMinutes || 0), 0);
       const percentage = Math.min(100, Math.round((totalMinutes / TARGET_MINUTES) * 100));

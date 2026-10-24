@@ -293,13 +293,44 @@ async function startServer() {
 
       writeJsonFile(WORKLOGS_FILE, updatedList);
 
-      // Also forward to Google Apps Script asynchronously
+      // Also forward to Google Apps Script asynchronously with complete field mappings
       const gasUrl = "https://script.google.com/macros/s/AKfycbxhbrnIQMIFHpZGXxq2Q2xnPJLPQtnCpDbDXFIOBPeWo6vulj2jEiWWrVlonr6dHa_M/exec";
       newEntries.forEach(entry => {
+        if (!entry) return;
+        const execName = entry.executiveName || entry.supportName || (entry as any)['Executive Name'] || (entry as any)['Executive'] || "Support Team";
+        const proof = entry.proofLink || (entry as any)['Proof Link'] || (entry as any)['proof_link'] || '';
+        const summary = entry.details || entry.summary || '';
+        const gasPayload = {
+          ...entry,
+          action: entry.action || (entry.proofUpdatedAt ? 'updateWorkLogProof' : 'addWorkLog'),
+          supportName: execName,
+          executiveName: execName,
+          'Support Name': execName,
+          'Executive Name': execName,
+          'Executive': execName,
+          'Support Executive': execName,
+          'support_name': execName,
+          'executive_name': execName,
+          summary: summary,
+          details: summary,
+          'Summary': summary,
+          'Summary Notes': summary,
+          proofLink: proof,
+          'Proof Link': proof,
+          'Proof_Link': proof,
+          'proof_link': proof,
+          startTime: entry.startTime || '09:00',
+          endTime: entry.endTime || entry.startTime || '09:15',
+          duration: entry.duration || `${entry.durationMinutes || 15} mins`,
+          status: entry.status || 'Completed',
+          approvalStatus: entry.approvalStatus || 'Approved',
+          syncStatus: 'Synchronized'
+        };
+
         fetch(gasUrl, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(entry),
+          body: JSON.stringify(gasPayload),
           redirect: "follow"
         }).catch(err => console.warn("[SERVER] GAS Sync warning:", err));
       });
@@ -1155,6 +1186,17 @@ async function startServer() {
         const clientUrls = readJsonFile<Record<string, any>>(CLIENT_URLS_FILE, {});
         let urlsUpdated = false;
 
+        const isWebUrl = (val: string): boolean => {
+          if (!val || typeof val !== 'string') return false;
+          const trimmed = val.trim();
+          if (/^\d+$/.test(trimmed)) return false; // Pure number like '600' is not a URL
+          if (trimmed.includes('@') && !trimmed.startsWith('http')) return false;
+          if (trimmed.includes('google.com/maps') || trimmed.includes('meet.google.com') || trimmed.includes('drive.google.com') || trimmed.includes('script.google.com')) return false;
+          if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return true;
+          if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(trimmed)) return true;
+          return false;
+        };
+
         data.clients = data.clients.map((c: any) => {
           const teId = String(c.teId || c.id || '').trim();
           const name = String(c.name || c.company || '').trim();
@@ -1166,15 +1208,24 @@ async function startServer() {
             clientUrls[name.toLowerCase()] ||
             null;
 
-          let rawUrl = (c.softwareUrl || c.url || c.deploymentUrl || '').trim();
-          let rawLogin = (c.softwareLogin || c.login || c.email || '').trim();
-          let rawRemarks = (c.specialManagerRemark || c.noteSaad || '').trim();
+          // Candidate URLs in priority order: check status (since sheet column offset often returns URL in status), then softwareUrl, url, etc.
+          let rawUrl = '';
+          const urlCandidates = [c.status, c.softwareUrl, c.columnO, c.url, c.deploymentUrl, c.clientUrl];
+          for (const cand of urlCandidates) {
+            if (cand && isWebUrl(cand)) {
+              rawUrl = String(cand).trim();
+              break;
+            }
+          }
+
+          let rawLogin = (c.softwareLogin || c.login || c.columnP || c.email || '').trim();
+          let rawRemarks = (c.specialManagerRemark || c.noteSaad || c.columnS || c.remarks || '').trim();
 
           if (entry) {
             const entryUrl = typeof entry === 'string' ? entry : (entry.url || entry.softwareUrl);
             const entryLogin = typeof entry === 'object' ? (entry.login || entry.softwareLogin || entry.email) : '';
             const entryRemarks = typeof entry === 'object' ? (entry.remarks || entry.specialManagerRemark || entry.noteSaad) : '';
-            if (!rawUrl && entryUrl) rawUrl = entryUrl;
+            if (!rawUrl && entryUrl && isWebUrl(entryUrl)) rawUrl = entryUrl;
             if (!rawLogin && entryLogin) rawLogin = entryLogin;
             if (!rawRemarks && entryRemarks) rawRemarks = entryRemarks;
           }
@@ -1209,8 +1260,14 @@ async function startServer() {
             }
           }
 
+          // If status was actually holding the URL, replace status with softwareUsage/callStatus so client status is not broken
+          const effectiveStatus = isWebUrl(c.status)
+            ? (c.softwareUsage || 'Completed')
+            : (c.status || c.softwareUsage || 'Active');
+
           return {
             ...c,
+            status: effectiveStatus,
             url: formattedUrl,
             softwareUrl: formattedUrl,
             deploymentUrl: formattedUrl,

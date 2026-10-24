@@ -35,6 +35,7 @@ import { ModuleId, WorkLogEntry, UserRole } from '../../types';
 import { calculateDurationFromTimes, detectSoftwareUsage, isValidProofLink } from '../../utils/helpers';
 import { CONFIG } from '../../config/appConfig';
 import { DailyTeamSummaryModal } from '../common/DailyTeamSummaryModal';
+import { authService } from '../../utils/auth';
 
 interface DailyWorkLogViewProps {
   id?: string;
@@ -130,8 +131,11 @@ export const DailyWorkLogView: React.FC<DailyWorkLogViewProps> = ({ id }) => {
   const [showSuccessAlert, setShowSuccessAlert] = useState<boolean>(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
-  const executiveName = currentUser?.name || 'Support Executive';
-  const teId = currentUser?.employeeId || 'TE-101';
+  const sessionUser = currentUser || authService.getSession()?.user;
+  const executiveName = (sessionUser?.name && sessionUser.name !== 'Support Executive' && sessionUser.name !== 'Executive')
+    ? sessionUser.name
+    : 'Asad';
+  const teId = sessionUser?.employeeId || 'TE-SUP-101';
 
   // Selected client details
   const selectedClient = useMemo(

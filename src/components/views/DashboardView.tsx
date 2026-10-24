@@ -552,6 +552,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ id }) => {
                     'Sumayya',
                     'Farman',
                     'Haneef',
+                    'Asad',
                     'Khaja Shareef',
                     'Techno Admin',
                     ...users
@@ -561,7 +562,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ id }) => {
                 )
                   .filter(name => {
                     const l = (name || '').toLowerCase();
-                    return l && !l.includes('asad') && !l.includes('ikhlas') && !l.includes('mahek') && !l.includes('rahul');
+                    return l && !l.includes('rahul') && !l.includes('sneha') && !l.includes('amit');
                   })
                   .map(name => (
                     <option key={name} value={name}>

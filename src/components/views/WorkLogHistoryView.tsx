@@ -24,6 +24,8 @@ import {
   MessageSquare,
   Sparkles,
   Link2,
+  ThumbsUp,
+  ThumbsDown,
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -39,6 +41,7 @@ export const WorkLogHistoryView: React.FC<WorkLogHistoryViewProps> = ({ id }) =>
     clients,
     currentUser,
     updateWorkLogFields,
+    updateWorkLogApproval,
     language,
     refreshCurrentView,
     isRefreshing
@@ -548,27 +551,42 @@ export const WorkLogHistoryView: React.FC<WorkLogHistoryViewProps> = ({ id }) =>
                       </td>
 
                       <td className="py-3.5 px-4 text-center">
-                        <span
-                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            log.approvalStatus === 'Approved'
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                          }`}
-                        >
-                          {log.approvalStatus || 'Pending'}
-                        </span>
+                        <div className="flex flex-col items-center gap-1.5">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                              log.approvalStatus === 'Approved'
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                            }`}
+                          >
+                            {log.approvalStatus || 'Pending'}
+                          </span>
+                          {isManagerOrLeadership && log.approvalStatus !== 'Approved' && (
+                            <button
+                              type="button"
+                              onClick={() => updateWorkLogApproval(log.id, 'Approved', isUrdu ? 'سپورٹ مینیجر نے منظور کیا' : 'Approved by Support Manager')}
+                              className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                              title="Approve Work Log & Sync to Sheets"
+                            >
+                              <ThumbsUp size={10} />
+                              <span>{isUrdu ? 'منظور' : 'Approve'}</span>
+                            </button>
+                          )}
+                        </div>
                       </td>
 
                       <td className="py-3.5 px-4 text-center">
                         {isManagerOrLeadership ? (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditRemark(log)}
-                            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-blue-600 hover:text-blue-700 transition cursor-pointer"
-                            title="Edit Special Manager Remark & Sync"
-                          >
-                            <Edit3 size={14} />
-                          </button>
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditRemark(log)}
+                              className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-blue-600 hover:text-blue-700 transition cursor-pointer"
+                              title="Edit Special Manager Remark & Sync"
+                            >
+                              <Edit3 size={14} />
+                            </button>
+                          </div>
                         ) : (
                           <span className="text-[10px] font-mono text-slate-400">View Only</span>
                         )}

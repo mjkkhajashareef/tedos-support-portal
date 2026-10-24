@@ -395,6 +395,8 @@ export interface AddWorkLogPayload {
   approvalRemark?: string;
   isProofPending?: boolean;
   updateExistingOnly?: boolean;
+  executiveName?: string;
+  [key: string]: any;
 }
 
 export type SoftwareUsageTag = 'Regular User' | 'Not Using' | 'Need Training';
@@ -533,28 +535,47 @@ const resolveRawProp = (raw: any, candidates: string[]): string => {
 };
 
 /**
+ * Validates if a string looks like a valid website / software portal URL
+ */
+export const isLikelyWebUrl = (val: string): boolean => {
+  if (!val || typeof val !== 'string') return false;
+  const trimmed = val.trim();
+  if (/^\d+$/.test(trimmed)) return false; // Pure number like '600' is not a URL
+  if (trimmed.includes('@') && !trimmed.startsWith('http')) return false; // Email address
+  if (trimmed.includes('google.com/maps') || trimmed.includes('meet.google.com') || trimmed.includes('drive.google.com') || trimmed.includes('script.google.com')) return false;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return true;
+  if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(trimmed)) return true;
+  return false;
+};
+
+/**
  * Maps raw client objects returned by Google Apps Script to the internal SupportClient model
  */
 export const mapGasClientToSupportClient = (raw: GasClientRaw, index: number): SupportClient => {
   const teId = resolveRawProp(raw, ['teId', 'TEID', 'id', 'ID']) || `TE-CL-${index + 1}`;
   const companyName = resolveRawProp(raw, ['name', 'Name', 'company', 'Company', 'clientName', 'ClientName', 'Client']) || `Client ${teId}`;
-  const rawStatus = (resolveRawProp(raw, ['status', 'Status']) || '').toLowerCase();
   
-  let status: 'Critical' | 'Warning' | 'Active' | 'Inactive' = 'Active';
-  if (rawStatus.includes('critical')) status = 'Critical';
-  else if (rawStatus.includes('not answering') || rawStatus.includes('pending') || rawStatus.includes('warning')) status = 'Warning';
-  else if (rawStatus.includes('deactivated') || rawStatus.includes('removed')) status = 'Inactive';
+  // Notice: In the Google Sheet, the URL column is sometimes returned under 'status' while 'url' contains student count/fee like '600'
+  const rawStatusField = resolveRawProp(raw, ['status', 'Status']);
+  const rawUsage = resolveRawProp(raw, ['softwareUsage', 'Software Usage', 'software_usage', 'callStatus', 'workStatus']);
   
-  const phone = resolveRawProp(raw, ['clientContact', 'ClientContact', 'operatorContact', 'OperatorContact', 'phone', 'Phone', 'mobile', 'Mobile']);
+  // Extract client URL from all sheet column possibilities, prioritizing valid web URLs over numeric cells
+  let detectedUrl = '';
+  const urlCandidates = [
+    rawStatusField, // Check first in case status column contains the URL (e.g. https://rh.edsof.com/user)
+    resolveRawProp(raw, ['softwareUrl', 'Software URL', 'SoftwareUrl', 'Software_URL', 'Software Url', 'software_url']),
+    resolveRawProp(raw, ['columnO', 'Column O', 'Column_O', 'colO', 'Col O', 'column_o', 'col_o', 'col15', 'Col15']),
+    resolveRawProp(raw, ['url', 'URL', 'Url', 'clientUrl', 'Client URL', 'ClientUrl', 'Client_URL', 'Client Url', 'client_url']),
+    resolveRawProp(raw, ['website', 'Website', 'link', 'Link', 'portalUrl', 'Portal URL', 'PortalUrl', 'portal_url']),
+    resolveRawProp(raw, ['deploymentUrl', 'Deployment URL', 'DeploymentUrl', 'deployment_url', 'webAppUrl', 'Web App URL'])
+  ];
 
-  // Extract client URL from all sheet column possibilities (Column O in Google Sheet)
-  let detectedUrl = resolveRawProp(raw, [
-    'url', 'URL', 'Url', 'clientUrl', 'Client URL', 'ClientUrl', 'Client_URL', 'Client Url', 'client_url',
-    'softwareUrl', 'Software URL', 'SoftwareUrl', 'Software_URL', 'Software Url', 'software_url',
-    'columnO', 'Column O', 'Column_O', 'colO', 'Col O', 'column_o', 'col_o', 'col15', 'Col15',
-    'website', 'Website', 'link', 'Link', 'portalUrl', 'Portal URL', 'PortalUrl', 'portal_url',
-    'deploymentUrl', 'Deployment URL', 'DeploymentUrl', 'deployment_url', 'webAppUrl', 'Web App URL'
-  ]);
+  for (const cand of urlCandidates) {
+    if (cand && isLikelyWebUrl(cand)) {
+      detectedUrl = cand.trim();
+      break;
+    }
+  }
 
   // Extract client login / username from sheet column possibilities (Column P in Google Sheet)
   let detectedLogin = resolveRawProp(raw, [
@@ -563,24 +584,24 @@ export const mapGasClientToSupportClient = (raw: GasClientRaw, index: number): S
     'email', 'Email', 'clientEmail', 'portalLogin', 'user', 'User'
   ]);
 
-  // If not found in known headers, scan for web URL or domain in any string property
+  // If not found in known headers, scan for web URL in any property of raw
   if (!detectedUrl) {
     for (const [_, val] of Object.entries(raw)) {
-      if (typeof val === 'string') {
-        const trimmed = val.trim();
-        if (
-          (trimmed.startsWith('http://') || trimmed.startsWith('https://') || /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(trimmed)) &&
-          !trimmed.includes('google.com/maps') &&
-          !trimmed.includes('meet.google.com') &&
-          !trimmed.includes('drive.google.com') &&
-          !trimmed.includes('script.google.com')
-        ) {
-          detectedUrl = trimmed;
-          break;
-        }
+      if (typeof val === 'string' && isLikelyWebUrl(val)) {
+        detectedUrl = val.trim();
+        break;
       }
     }
   }
+
+  // Determine actual lifecycle status: if rawStatusField is a URL, use softwareUsage/callStatus instead
+  const effectiveStatusText = (isLikelyWebUrl(rawStatusField) ? rawUsage : rawStatusField || rawUsage || '').toLowerCase();
+  let status: 'Critical' | 'Warning' | 'Active' | 'Inactive' = 'Active';
+  if (effectiveStatusText.includes('critical')) status = 'Critical';
+  else if (effectiveStatusText.includes('not answering') || effectiveStatusText.includes('pending') || effectiveStatusText.includes('warning')) status = 'Warning';
+  else if (effectiveStatusText.includes('deactivated') || effectiveStatusText.includes('removed')) status = 'Inactive';
+
+  const phone = resolveRawProp(raw, ['clientContact', 'ClientContact', 'operatorContact', 'OperatorContact', 'phone', 'Phone', 'mobile', 'Mobile']);
 
   let saadNote = resolveRawProp(raw, [
     'specialManagerRemark', 'Special Manager Remark', 'special_manager_remark',
@@ -602,10 +623,11 @@ export const mapGasClientToSupportClient = (raw: GasClientRaw, index: number): S
           cachedMap[companyName.toLowerCase()] ||
           null;
         if (typeof cachedEntry === 'string') {
-          if (!detectedUrl) detectedUrl = cachedEntry;
+          if (!detectedUrl && isLikelyWebUrl(cachedEntry)) detectedUrl = cachedEntry;
         } else if (cachedEntry && typeof cachedEntry === 'object') {
-          if (!detectedUrl && (cachedEntry.url || cachedEntry.softwareUrl)) {
-            detectedUrl = cachedEntry.url || cachedEntry.softwareUrl;
+          const entryUrl = cachedEntry.url || cachedEntry.softwareUrl;
+          if (!detectedUrl && entryUrl && isLikelyWebUrl(entryUrl)) {
+            detectedUrl = entryUrl;
           }
           if (!detectedLogin && (cachedEntry.login || cachedEntry.softwareLogin || cachedEntry.email)) {
             detectedLogin = cachedEntry.login || cachedEntry.softwareLogin || cachedEntry.email;
@@ -672,7 +694,7 @@ export const mapGasClientToSupportClient = (raw: GasClientRaw, index: number): S
       expiryDate: '2027-12-31',
       lastBackupDate: new Date().toISOString().split('T')[0]
     },
-    healthStatus: rawStatus.includes('connected') || rawStatus.includes('compet') ? 95 : rawStatus.includes('not answering') ? 65 : 85,
+    healthStatus: effectiveStatusText.includes('connected') || effectiveStatusText.includes('compet') ? 95 : effectiveStatusText.includes('not answering') ? 65 : 85,
     recentActivityTimestamp: new Date().toISOString(),
     teId,
     clientContact: phone,
@@ -765,6 +787,45 @@ export const postWorkLogToGAS = async (
       effectivePayload.action = 'updateWorkLogProof';
       effectivePayload.updateExistingOnly = true;
     }
+  }
+
+  // Normalize all executive name property aliases so Google Apps Script never receives empty name or defaults to 'Executive'
+  const effectiveExecName =
+    effectivePayload.supportName ||
+    effectivePayload.executiveName ||
+    (effectivePayload as any)['Executive Name'] ||
+    (effectivePayload as any)['Executive'] ||
+    (effectivePayload as any)['Support Name'] ||
+    (effectivePayload as any)['Support Executive'] ||
+    '';
+
+  if (effectiveExecName) {
+    effectivePayload.supportName = effectiveExecName;
+    effectivePayload.executiveName = effectiveExecName;
+    (effectivePayload as any)['supportName'] = effectiveExecName;
+    (effectivePayload as any)['executiveName'] = effectiveExecName;
+    (effectivePayload as any)['Support Name'] = effectiveExecName;
+    (effectivePayload as any)['Executive Name'] = effectiveExecName;
+    (effectivePayload as any)['Executive'] = effectiveExecName;
+    (effectivePayload as any)['Support Executive'] = effectiveExecName;
+    (effectivePayload as any)['support_name'] = effectiveExecName;
+    (effectivePayload as any)['executive_name'] = effectiveExecName;
+    (effectivePayload as any)['executive'] = effectiveExecName;
+  }
+
+  // Normalize summary and details aliases
+  const effectiveSummary =
+    effectivePayload.summary ||
+    (effectivePayload as any).details ||
+    (effectivePayload as any)['Summary'] ||
+    (effectivePayload as any)['Summary Notes'] ||
+    '';
+  if (effectiveSummary) {
+    effectivePayload.summary = effectiveSummary;
+    (effectivePayload as any).details = effectiveSummary;
+    (effectivePayload as any)['Summary'] = effectiveSummary;
+    (effectivePayload as any)['Summary Notes'] = effectiveSummary;
+    (effectivePayload as any)['Work Summary'] = effectiveSummary;
   }
 
   // Normalize all proof link property aliases so Google Apps Script & Ultimate Sheet receives it regardless of header case

@@ -33,7 +33,7 @@ export const DailyTeamSummaryModal: React.FC<DailyTeamSummaryModalProps> = ({
   isOpen,
   onClose
 }) => {
-  const { workLogs, tickets, language } = useApp();
+  const { workLogs, tickets, users, language } = useApp();
   const isUrdu = language === 'ur';
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
@@ -83,7 +83,11 @@ export const DailyTeamSummaryModal: React.FC<DailyTeamSummaryModalProps> = ({
   const executiveStats = useMemo(() => {
     const stats: Record<string, { count: number; minutes: number; happy: number; unhappy: number }> = {};
     filteredLogs.forEach(l => {
-      const exec = l.executiveName || l.supportName || 'Executive';
+      let exec = l.executiveName || l.supportName || '';
+      if (!exec || exec === 'Executive' || exec === 'Support Executive') {
+        const matchedUser = users.find(u => (u.employeeId && l.teId && u.employeeId.toLowerCase() === l.teId.toLowerCase()));
+        exec = matchedUser?.name || 'Support Executive';
+      }
       if (!stats[exec]) {
         stats[exec] = { count: 0, minutes: 0, happy: 0, unhappy: 0 };
       }
@@ -93,7 +97,7 @@ export const DailyTeamSummaryModal: React.FC<DailyTeamSummaryModalProps> = ({
       if (l.clientStatus === 'Unhappy' || l.clientStatusRisk === 'At Risk') stats[exec].unhappy += 1;
     });
     return stats;
-  }, [filteredLogs]);
+  }, [filteredLogs, users]);
 
   // Generate WhatsApp summary text
   const formattedSummaryText = useMemo(() => {
