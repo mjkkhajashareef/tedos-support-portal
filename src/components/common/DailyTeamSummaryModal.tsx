@@ -24,6 +24,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { openWhatsAppChat } from '../../utils/whatsappUtils';
 
+import { UserRole } from '../../types';
+
 interface DailyTeamSummaryModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -33,8 +35,11 @@ export const DailyTeamSummaryModal: React.FC<DailyTeamSummaryModalProps> = ({
   isOpen,
   onClose
 }) => {
-  const { workLogs, tickets, users, language } = useApp();
+  const { workLogs, tickets, users, language, currentUser } = useApp();
   const isUrdu = language === 'ur';
+  const isSupportExecutive = currentUser?.role === UserRole.SUPPORT_EXECUTIVE;
+  const currentExecName = (currentUser?.name || '').trim().toLowerCase();
+  const currentEmpId = (currentUser?.employeeId || '').trim().toLowerCase();
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
@@ -63,13 +68,28 @@ export const DailyTeamSummaryModal: React.FC<DailyTeamSummaryModalProps> = ({
     return Array.from(map.values());
   }, [workLogs, allLogsFromTickets]);
 
-  // Filter logs for selected date
+  // Filter logs for selected date & apply Role Isolation
+  // Support Executive sees only their own logs; Manager / COO sees the whole team
   const filteredLogs = useMemo(() => {
-    return allLogs.filter(l => {
+    const dateLogs = allLogs.filter(l => {
       const d = (l.date || '').split('T')[0];
       return d === selectedDate;
     });
-  }, [allLogs, selectedDate]);
+
+    if (isSupportExecutive && currentExecName) {
+      return dateLogs.filter(l => {
+        const exec = (l.executiveName || l.supportName || '').trim().toLowerCase();
+        const teId = (l.teId || '').trim().toLowerCase();
+        return (
+          exec.includes(currentExecName) ||
+          currentExecName.includes(exec) ||
+          (currentEmpId && teId === currentEmpId)
+        );
+      });
+    }
+
+    return dateLogs;
+  }, [allLogs, selectedDate, isSupportExecutive, currentExecName, currentEmpId]);
 
   // Calculations
   const totalLogs = filteredLogs.length;
@@ -107,14 +127,16 @@ export const DailyTeamSummaryModal: React.FC<DailyTeamSummaryModalProps> = ({
       year: 'numeric'
     });
 
-    let text = `📊 *DAILY SUPPORT TEAM PERFORMANCE SUMMARY*\n`;
+    let text = isSupportExecutive
+      ? `📊 *MY DAILY SUPPORT PERFORMANCE SUMMARY*\n👤 Executive: *${currentUser?.name || 'Executive'}*\n`
+      : `📊 *DAILY SUPPORT TEAM PERFORMANCE SUMMARY*\n`;
     text += `📅 Date: ${dateFormatted} (${dateMode === 'today' ? 'Today' : 'Historical'})\n`;
     text += `━━━━━━━━━━━━━━━━━━━━━\n`;
     text += `📞 Total Sessions / Calls Logged: *${totalLogs}*\n`;
     text += `⏱️ Total Duration: *${totalHours} hours* (${totalMinutes} mins)\n`;
     text += `😊 Client Satisfaction: *${happyCount} Happy* | *${unhappyCount} At Risk*\n`;
     text += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    text += `👥 *EXECUTIVE WISE BREAKDOWN:*\n`;
+    text += isSupportExecutive ? `👥 *SUMMARY DETAILS:*\n` : `👥 *EXECUTIVE WISE BREAKDOWN:*\n`;
 
     const execKeys = Object.keys(executiveStats);
     if (execKeys.length === 0) {
@@ -135,7 +157,7 @@ export const DailyTeamSummaryModal: React.FC<DailyTeamSummaryModalProps> = ({
 
     text += `\n_Techno Evident Customer Support Operations_`;
     return text;
-  }, [selectedDate, dateMode, totalLogs, totalHours, totalMinutes, happyCount, unhappyCount, executiveStats, filteredLogs]);
+  }, [selectedDate, dateMode, totalLogs, totalHours, totalMinutes, happyCount, unhappyCount, executiveStats, filteredLogs, isSupportExecutive, currentUser]);
 
   const handleCopySummary = () => {
     navigator.clipboard.writeText(formattedSummaryText);
@@ -170,10 +192,14 @@ export const DailyTeamSummaryModal: React.FC<DailyTeamSummaryModalProps> = ({
               </div>
               <div>
                 <h2 className="text-base font-black">
-                  {isUrdu ? 'روزانہ سپورٹ ٹیم کی سمری و رپورٹ (Daily Support Summary)' : 'Daily Support Team Summary & Analytics'}
+                  {isSupportExecutive
+                    ? (isUrdu ? `میری روزانہ کارکردگی خلاصہ (${currentUser?.name || 'My Summary'})` : `My Daily Support Summary (${currentUser?.name || 'Executive'})`)
+                    : (isUrdu ? 'روزانہ سپورٹ ٹیم کی سمری و رپورٹ (Daily Support Summary)' : 'Daily Support Team Summary & Analytics')}
                 </h2>
                 <p className="text-xs text-white/90">
-                  {isUrdu ? 'آج کی سمری یا کیلنڈر سے تاریخ منتخب کر کے مکمل رپورٹ حاصل کریں' : 'Choose Today or select date from calendar to extract team summary'}
+                  {isSupportExecutive
+                    ? (isUrdu ? `صرف آپ کی (${currentUser?.name}) آج کی کالز اور کارکردگی کی سمری` : `Individual session metrics and performance for ${currentUser?.name}`)
+                    : (isUrdu ? 'آج کی سمری یا کیلنڈر سے تاریخ منتخب کر کے مکمل رپورٹ حاصل کریں' : 'Choose Today or select date from calendar to extract team summary')}
                 </p>
               </div>
             </div>

@@ -7,6 +7,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { ModuleId, SupportClient, UserRole } from '../../types';
 import { can, Permission } from '../../utils/rbac';
+import { extractWebUrl } from '../../utils/helpers';
 import { MaterialCard } from '../common/MaterialCard';
 import {
   Search,
@@ -168,10 +169,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ id }) => {
 
   const formatCleanUrlOnly = (rawUrl?: string) => {
     if (!rawUrl) return '';
-    const trimmed = rawUrl.trim();
-    const match = trimmed.match(/https?:\/\/[^\s]+/i);
-    if (match) return match[0];
-    return trimmed.startsWith('http') ? trimmed : `https://${trimmed}`;
+    return extractWebUrl(rawUrl);
   };
 
   return (

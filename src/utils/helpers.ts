@@ -463,7 +463,44 @@ export const isValidProofLink = (link?: string): boolean => {
 };
 
 /**
- * Auto-calculates duration string ("HH:mm:ss") and minutes from start and end times ("HH:mm").
+ * Parses time string to total seconds handling 12h AM/PM or 24h formats
+ */
+export const parseTimeToSeconds = (timeStr: string): number => {
+  if (!timeStr || typeof timeStr !== 'string') return 0;
+  const isPM = /pm/i.test(timeStr);
+  const isAM = /am/i.test(timeStr);
+  const clean = timeStr.replace(/[^0-9:]/g, '').trim();
+  const parts = clean.split(':').map(Number);
+  if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return 0;
+  let h = parts[0];
+  const m = parts[1];
+  const s = parts[2] || 0;
+  if (isPM && h < 12) h += 12;
+  if (isAM && h === 12) h = 0;
+  return h * 3600 + m * 60 + s;
+};
+
+/**
+ * Returns formatted 24-hour time "HH:mm:ss"
+ */
+export const formatTimeHHMMSS = (d: Date = new Date()): string => {
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  const s = String(d.getSeconds()).padStart(2, '0');
+  return `${h}:${m}:${s}`;
+};
+
+/**
+ * Returns formatted 24-hour time "HH:mm"
+ */
+export const formatTimeHHMM = (d: Date = new Date()): string => {
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
+};
+
+/**
+ * Auto-calculates duration string ("HH:mm:ss") and minutes from start and end times ("HH:mm" or "HH:mm:ss").
  */
 export const calculateDurationFromTimes = (
   startTime: string,
@@ -473,19 +510,18 @@ export const calculateDurationFromTimes = (
     return { durationMinutes: 15, durationFormatted: '00:15:00' };
   }
   try {
-    const [sh, sm] = startTime.split(':').map(Number);
-    const [eh, em] = endTime.split(':').map(Number);
-    if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) {
-      return { durationMinutes: 15, durationFormatted: '00:15:00' };
+    const startSecs = parseTimeToSeconds(startTime);
+    const endSecs = parseTimeToSeconds(endTime);
+    let diffSecs = endSecs - startSecs;
+    if (diffSecs < 0) {
+      diffSecs += 24 * 3600; // Cross-midnight
     }
-    let diffMins = (eh * 60 + em) - (sh * 60 + sm);
-    if (diffMins < 0) {
-      diffMins += 24 * 60; // Cross-midnight
-    }
-    const hours = Math.floor(diffMins / 60);
-    const mins = diffMins % 60;
-    const durationFormatted = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00`;
-    return { durationMinutes: diffMins, durationFormatted };
+    const hours = Math.floor(diffSecs / 3600);
+    const mins = Math.floor((diffSecs % 3600) / 60);
+    const secs = diffSecs % 60;
+    const durationMinutes = Math.max(1, Math.round(diffSecs / 60));
+    const durationFormatted = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    return { durationMinutes, durationFormatted };
   } catch {
     return { durationMinutes: 15, durationFormatted: '00:15:00' };
   }
@@ -535,17 +571,31 @@ const resolveRawProp = (raw: any, candidates: string[]): string => {
 };
 
 /**
+ * Robustly extracts a clean web/software URL from any string
+ */
+export const extractWebUrl = (val: string): string => {
+  if (!val || typeof val !== 'string') return '';
+  const trimmed = val.trim();
+  if (!trimmed || trimmed === '-' || trimmed === 'N/A' || /^\d+$/.test(trimmed)) return '';
+  if (trimmed.includes('google.com/maps') || trimmed.includes('meet.google.com') || trimmed.includes('drive.google.com') || trimmed.includes('script.google.com')) return '';
+  // Match complete http/https URLs including ports and paths
+  const httpMatch = trimmed.match(/https?:\/\/[^\s"',;<>]+/i);
+  if (httpMatch) return httpMatch[0].trim();
+  // Match domain names like rhps.school.edsof.com or demo.technoevident.com:8080/user
+  if (!trimmed.includes('@')) {
+    const domainMatch = trimmed.match(/([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(:[0-9]+)?(\/[^\s"',;<>]*)?/i);
+    if (domainMatch) {
+      return `https://${domainMatch[0].trim()}`;
+    }
+  }
+  return '';
+};
+
+/**
  * Validates if a string looks like a valid website / software portal URL
  */
 export const isLikelyWebUrl = (val: string): boolean => {
-  if (!val || typeof val !== 'string') return false;
-  const trimmed = val.trim();
-  if (/^\d+$/.test(trimmed)) return false; // Pure number like '600' is not a URL
-  if (trimmed.includes('@') && !trimmed.startsWith('http')) return false; // Email address
-  if (trimmed.includes('google.com/maps') || trimmed.includes('meet.google.com') || trimmed.includes('drive.google.com') || trimmed.includes('script.google.com')) return false;
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return true;
-  if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(trimmed)) return true;
-  return false;
+  return extractWebUrl(val).length > 0;
 };
 
 /**
@@ -563,16 +613,17 @@ export const mapGasClientToSupportClient = (raw: GasClientRaw, index: number): S
   let detectedUrl = '';
   const urlCandidates = [
     rawStatusField, // Check first in case status column contains the URL (e.g. https://rh.edsof.com/user)
-    resolveRawProp(raw, ['softwareUrl', 'Software URL', 'SoftwareUrl', 'Software_URL', 'Software Url', 'software_url']),
+    resolveRawProp(raw, ['softwareUrl', 'Software URL', 'SoftwareUrl', 'Software_URL', 'Software Url', 'software_url', 'software_link', 'Software Link']),
     resolveRawProp(raw, ['columnO', 'Column O', 'Column_O', 'colO', 'Col O', 'column_o', 'col_o', 'col15', 'Col15']),
     resolveRawProp(raw, ['url', 'URL', 'Url', 'clientUrl', 'Client URL', 'ClientUrl', 'Client_URL', 'Client Url', 'client_url']),
-    resolveRawProp(raw, ['website', 'Website', 'link', 'Link', 'portalUrl', 'Portal URL', 'PortalUrl', 'portal_url']),
-    resolveRawProp(raw, ['deploymentUrl', 'Deployment URL', 'DeploymentUrl', 'deployment_url', 'webAppUrl', 'Web App URL'])
+    resolveRawProp(raw, ['website', 'Website', 'link', 'Link', 'portalUrl', 'Portal URL', 'PortalUrl', 'portal_url', 'portal_link', 'Portal Link']),
+    resolveRawProp(raw, ['deploymentUrl', 'Deployment URL', 'DeploymentUrl', 'deployment_url', 'webAppUrl', 'Web App URL', 'appUrl', 'App URL'])
   ];
 
   for (const cand of urlCandidates) {
-    if (cand && isLikelyWebUrl(cand)) {
-      detectedUrl = cand.trim();
+    const extracted = extractWebUrl(cand);
+    if (extracted) {
+      detectedUrl = extracted;
       break;
     }
   }
@@ -581,15 +632,18 @@ export const mapGasClientToSupportClient = (raw: GasClientRaw, index: number): S
   let detectedLogin = resolveRawProp(raw, [
     'login', 'Login', 'softwareLogin', 'Software Login', 'software_login',
     'columnP', 'Column P', 'Column_P', 'colP', 'Col P', 'column_p', 'col_p', 'col16', 'Col16',
-    'email', 'Email', 'clientEmail', 'portalLogin', 'user', 'User'
+    'email', 'Email', 'clientEmail', 'portalLogin', 'user', 'User', 'username', 'Username'
   ]);
 
   // If not found in known headers, scan for web URL in any property of raw
   if (!detectedUrl) {
     for (const [_, val] of Object.entries(raw)) {
-      if (typeof val === 'string' && isLikelyWebUrl(val)) {
-        detectedUrl = val.trim();
-        break;
+      if (typeof val === 'string') {
+        const extracted = extractWebUrl(val);
+        if (extracted) {
+          detectedUrl = extracted;
+          break;
+        }
       }
     }
   }
@@ -839,6 +893,28 @@ export const postWorkLogToGAS = async (
     (effectivePayload as any)['proof'] = effectiveProofLink;
     (effectivePayload as any)['Recording Link'] = effectiveProofLink;
     (effectivePayload as any)['Google Meet Link'] = effectiveProofLink;
+  }
+
+  // 10-Minute Proof Policy:
+  // Calls <= 10 mins do not require proof and must NOT be marked PENDING in sheet!
+  const durationMins = Number(effectivePayload.durationMinutes) || 0;
+  if (durationMins > 0 && durationMins <= 10) {
+    if (effectivePayload.proofLink === 'PENDING' || !effectivePayload.proofLink) {
+      effectivePayload.proofLink = '';
+      (effectivePayload as any)['Proof Link'] = '';
+      (effectivePayload as any)['Proof_Link'] = '';
+      (effectivePayload as any)['proof_link'] = '';
+      (effectivePayload as any)['Proof'] = '';
+    }
+  }
+
+  // If Manager/COO has approved, ensure proofLink column shows approval action instead of PENDING
+  if (effectivePayload.approvalStatus === 'Approved' && (effectivePayload.proofLink === 'PENDING' || !effectivePayload.proofLink)) {
+    const remark = effectivePayload.managerRemark || effectivePayload.cooRemark || effectivePayload.approvalRemark || 'Approved by Manager';
+    effectivePayload.proofLink = remark;
+    (effectivePayload as any)['Proof Link'] = remark;
+    (effectivePayload as any)['Proof_Link'] = remark;
+    (effectivePayload as any)['proof_link'] = remark;
   }
 
   const fingerprint = `${effectivePayload.action}|${logId}|${effectivePayload.teId}|${effectivePayload.clientName}|${effectivePayload.date}|${effectiveProofLink}`;

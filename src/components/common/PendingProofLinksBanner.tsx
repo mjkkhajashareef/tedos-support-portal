@@ -52,6 +52,10 @@ export const PendingProofLinksBanner: React.FC<PendingProofLinksBannerProps> = (
 
   const pendingLogs = Array.from(combinedLogsMap.values()).filter((log) => {
     if (successIds[log.id]) return false;
+    // If manager already approved or marked resolved, no longer pending
+    if (log.approvalStatus === 'Approved') return false;
+    if (log.proofLink && (log.proofLink.includes('Approved') || log.proofLink.includes('Done') || log.proofLink.includes('OK'))) return false;
+
     // Support Executive data isolation: only show their own pending logs
     if (isSupportExecutive && currentExecName) {
       const logExec = (log.executiveName || (log as any).supportName || '').trim().toLowerCase();
@@ -59,11 +63,15 @@ export const PendingProofLinksBanner: React.FC<PendingProofLinksBannerProps> = (
         return false;
       }
     }
+
+    const duration = Number(log.durationMinutes) || 0;
+    // Rule: Calls <= 10 minutes do not require proof and are automatically approved without pending status
+    if (duration <= 10) return false;
+
     if (log.isProofPending === true) return true;
     if (log.proofLink === 'PENDING') return true;
     const hasValidProof = log.proofLink && isValidProofLink(log.proofLink);
-    const duration = log.durationMinutes || 0;
-    if (duration > 5 && !hasValidProof) {
+    if (!hasValidProof) {
       return true;
     }
     return false;

@@ -291,12 +291,14 @@ async function startServer() {
         return da - db;
       });
 
+      // Persist to disk for real-time multi-device sync
       writeJsonFile(WORKLOGS_FILE, updatedList);
 
-      // Also forward to Google Apps Script asynchronously with complete field mappings
+      // Only forward to GAS if client explicitly requests server-side sync (via syncToGas: true)
+      // and skipGas is not set. This prevents the duplicate entries caused by both client and server posting.
       const gasUrl = "https://script.google.com/macros/s/AKfycbxhbrnIQMIFHpZGXxq2Q2xnPJLPQtnCpDbDXFIOBPeWo6vulj2jEiWWrVlonr6dHa_M/exec";
       newEntries.forEach(entry => {
-        if (!entry) return;
+        if (!entry || entry.skipGas === true || !entry.syncToGas) return;
         const execName = entry.executiveName || entry.supportName || (entry as any)['Executive Name'] || (entry as any)['Executive'] || "Support Team";
         const proof = entry.proofLink || (entry as any)['Proof Link'] || (entry as any)['proof_link'] || '';
         const summary = entry.details || entry.summary || '';

@@ -74,14 +74,31 @@ export const PendingProofLinksModal: React.FC<PendingProofLinksModalProps> = ({
   });
 
   const allLogs = Array.from(combinedLogsMap.values());
+  const isSupportExecutive = currentUser?.role === UserRole.SUPPORT_EXECUTIVE;
+  const currentExecName = (currentUser?.name || '').trim().toLowerCase();
 
   const pendingLogs = allLogs.filter((log) => {
     if (successIds[log.id]) return false;
+    // If approved by manager, it is no longer pending
+    if (log.approvalStatus === 'Approved') return false;
+    if (log.proofLink && (log.proofLink.includes('Approved') || log.proofLink.includes('Done') || log.proofLink.includes('OK'))) return false;
+
+    // Role Isolation: Support executive only sees their own pending logs
+    if (isSupportExecutive && currentExecName) {
+      const logExec = (log.executiveName || (log as any).supportName || '').trim().toLowerCase();
+      if (!logExec.includes(currentExecName) && !currentExecName.includes(logExec)) {
+        return false;
+      }
+    }
+
+    const duration = Number(log.durationMinutes) || 0;
+    // Calls <= 10 minutes do not require proof and are automatically approved without pending status
+    if (duration <= 10) return false;
+
     if (log.isProofPending === true) return true;
     if (log.proofLink === 'PENDING') return true;
     const hasValidProof = log.proofLink && isValidProofLink(log.proofLink);
-    const duration = log.durationMinutes || 0;
-    if (duration > 5 && !hasValidProof) {
+    if (!hasValidProof) {
       return true;
     }
     return false;
@@ -273,7 +290,7 @@ export const PendingProofLinksModal: React.FC<PendingProofLinksModalProps> = ({
               <p className="text-xs text-md-outline max-w-sm mx-auto">
                 {isUrdu
                   ? 'آپ کے تمام سپورٹ ورک لاگز میں تصدیقی میٹ لنکس کامیابی سے شامل ہیں۔'
-                  : 'Every session exceeding 5 minutes has an attached, verified recording link.'}
+                  : 'Every session exceeding 10 minutes has an attached, verified recording link or approval.'}
               </p>
             </div>
           ) : (

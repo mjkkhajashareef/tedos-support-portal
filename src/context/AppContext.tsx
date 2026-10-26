@@ -28,7 +28,8 @@ import {
   UserStatus,
   OverServiceEntry,
   ClientLifecycleStatus,
-  InternalMessage
+  InternalMessage,
+  ActiveWorkLogSession
 } from '../types';
 import { messageService } from '../utils/messageService';
 import { ThemeType, THEME_REGISTRY, applyThemeToDOM } from '../config/theme';
@@ -150,6 +151,11 @@ interface AppContextType {
   openSheetSyncModal: () => void;
   importSheetRowData: (tsvText: string) => Promise<{ count: number; importedClients: string[] }>;
 
+  // Active Work Log Session State (persists across sidebar navigation & prevents timer loss)
+  activeLogSession: ActiveWorkLogSession | null;
+  updateActiveLogSession: (updates: Partial<ActiveWorkLogSession> | null) => void;
+  clearActiveLogSession: () => void;
+
   // dynamic configurations & language
   language: 'en' | 'ur';
   setLanguage: (lang: 'en' | 'ur') => void;
@@ -217,6 +223,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [navHistory, setNavHistory] = useState<ModuleId[]>([ModuleId.LOGIN]);
   const [historyIndex, setHistoryIndex] = useState<number>(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Active Work Log Session State (persists across sidebar navigation so timer never resets unexpectedly)
+  const [activeLogSession, setActiveLogSessionState] = useState<ActiveWorkLogSession | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('tedos_active_worklog_session');
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return null;
+  });
+
+  const updateActiveLogSession = (updates: Partial<ActiveWorkLogSession> | null) => {
+    setActiveLogSessionState(prev => {
+      if (updates === null) {
+        try { localStorage.removeItem('tedos_active_worklog_session'); } catch {}
+        return null;
+      }
+      const next = prev ? { ...prev, ...updates } : (updates as ActiveWorkLogSession);
+      try { localStorage.setItem('tedos_active_worklog_session', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
+
+  const clearActiveLogSession = () => {
+    setActiveLogSessionState(null);
+    try { localStorage.removeItem('tedos_active_worklog_session'); } catch {}
+  };
 
   const setCurrentModule = (module: ModuleId) => {
     console.log('AppContext: setCurrentModule called with', module);
@@ -1512,14 +1546,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     try {
-      await Promise.allSettled([
-        postWorkLogToGAS(gasPayload, '/api/proxy'),
-        fetch('/api/tickets', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newTicket)
-        }).then(r => r.json()).catch(err => console.warn('[AppContext] Server /api/tickets sync warning:', err))
-      ]);
+      await fetch('/api/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTicket)
+      }).then(r => r.json()).catch(err => console.warn('[AppContext] Server /api/tickets sync warning:', err));
     } catch (e) {
       console.warn('[AppContext] Ultimate Sheet Ticket Rase tab sync warning:', e);
     }
@@ -1998,11 +2029,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('[TEDOS Db] Failed to save work log to IndexedDB', err);
     });
 
-    // Cross-Laptop Multi-User Sync: Save directly to server /api/worklogs
+    // Cross-Laptop Multi-User Sync: Save directly to server /api/worklogs without duplicate GAS forward
     fetch('/api/worklogs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(completeLogEntry)
+      body: JSON.stringify({ ...completeLogEntry, skipGas: true })
     }).catch(err => console.warn('[AppContext] Server work logs sync notice:', err));
 
     // Also attach to active ticket using the SAME unifiedLogId so derivedLogsMap never creates a 2nd item
@@ -2190,6 +2221,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cleanUpdates.isProofPending = false;
       cleanUpdates.syncStatus = 'Synchronized';
       cleanUpdates.flagReason = undefined;
+      const currentProof = currentLog?.proofLink;
+      if (!currentProof || currentProof === 'PENDING') {
+        const approvedText = cleanUpdates.approvalRemark || cleanUpdates.managerRemark || cleanUpdates.cooRemark || 'Approved by Manager';
+        cleanUpdates.proofLink = approvedText;
+      }
     }
 
     const targetLog: WorkLogEntry = currentLog
@@ -2247,11 +2283,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     }
 
-    // 3. Immediate Server Sync to /api/worklogs so refresh never reverts approval or remarks!
+    // 3. Immediate Server Sync to /api/worklogs without duplicate GAS forward
     fetch('/api/worklogs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(targetLog)
+      body: JSON.stringify({ ...targetLog, skipGas: true })
     }).catch(err => console.warn('[AppContext] Server work logs update notice:', err));
 
     // 4. Google Sheet Sync for any Leadership Action (Approvals, Remarks, Status changes)
@@ -2376,12 +2412,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // 3. Persist updated proof link directly to server /api/worklogs (CRITICAL for multi-device & reload persistence)
+    // 3. Persist updated proof link directly to server /api/worklogs without duplicate GAS forward
     if (updatedEntry) {
       fetch('/api/worklogs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedEntry)
+        body: JSON.stringify({ ...updatedEntry, skipGas: true })
       }).catch(err => console.warn('[AppContext] Server work logs proof update notice:', err));
 
       // 4. Dispatch to GAS so Ultimate Sheet receives the verified proof link
@@ -2621,6 +2657,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLanguage,
         activeTheme,
         setActiveTheme,
+        activeLogSession,
+        updateActiveLogSession,
+        clearActiveLogSession,
         branding: TEDOS_BRAND_ASSETS,
         config: ACTIVE_CONFIG,
       }}

@@ -116,17 +116,41 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ id }) => {
     setCurrentModule(ModuleId.CLIENT_WORKSPACE);
   };
 
-  // 2. Metrics & Workload calculations from active AppContext lists
-  const myClients = clients.filter(c => c.assignedExecutive === currentUser?.name) || [];
-  const assignedClientsCount = myClients.length || clients.length;
+  // 2. Metrics & Workload calculations with strict role-based data isolation
+  const isSupportExecutive = currentUser?.role === UserRole.SUPPORT_EXECUTIVE;
+  const currentExecName = (currentUser?.name || '').trim().toLowerCase();
+  const firstToken = currentExecName.split(' ')[0];
 
-  const activeFollowups = followUps.filter(f => f.status === 'Pending');
+  // For Support Executive: only their own assigned clients. For Managers: all clients
+  const myClients = isSupportExecutive
+    ? clients.filter(c => {
+        const assigned = (c.assignedExecutive || c.assignedSupport || '').toLowerCase().trim();
+        return assigned === currentExecName || (firstToken && assigned.includes(firstToken));
+      })
+    : clients;
+  const assignedClientsCount = myClients.length;
+
+  // Active Follow-ups: scoped to executive if Support Executive, else all
+  const scopedFollowups = isSupportExecutive
+    ? followUps.filter(f => {
+        const exec = (f.executiveName || '').toLowerCase().trim();
+        return exec === currentExecName || (firstToken && exec.includes(firstToken));
+      })
+    : followUps;
+  const activeFollowups = scopedFollowups.filter(f => f.status === 'Pending');
   const todaysFollowupsCount = activeFollowups.length;
-  
-  const overdueFollowupsCount = followUps.filter(f => f.status === 'Overdue').length;
-  const pendingTrainingsCount = 2; // Fixed mock training metrics
-  const todaysWorkLogsCount = workLogs.length;
-  const pendingTasksCount = activeFollowups.length + overdueFollowupsCount + 1; // calculated tasks workload
+  const overdueFollowupsCount = scopedFollowups.filter(f => f.status === 'Overdue').length;
+
+  // Work logs count: scoped to executive if Support Executive, else all team
+  const todayDateStr = liveTime.toISOString().split('T')[0];
+  const scopedWorkLogs = isSupportExecutive
+    ? workLogs.filter(l => {
+        const exec = (l.executiveName || (l as any).supportName || '').toLowerCase().trim();
+        return exec === currentExecName || (firstToken && exec.includes(firstToken));
+      })
+    : workLogs;
+  const todaysWorkLogsCount = scopedWorkLogs.filter(l => l.date === todayDateStr).length;
+  const pendingTasksCount = activeFollowups.length + overdueFollowupsCount;
 
   // Search filter for clients
   const filteredClients = searchQuery.trim()
@@ -184,6 +208,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ id }) => {
     company: c.company,
     trainingTopic: isUrdu ? 'سافٹ ویئر ابتدائی ٹریننگ v5.0' : 'v5.0-SaaS System Orientation & Billing Setup'
   }));
+  const pendingTrainingsCount = trainingRequiredClients.length;
 
   // Filtered Dashboard Work Logs for Date & Executive Export/Report (Req #13, #14 & Op Manager #2, #3, #4)
   const filteredDashboardWorkLogs = React.useMemo(() => {
@@ -418,100 +443,124 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ id }) => {
         
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {/* Summary Card 1 */}
-          <div className="p-4 rounded-2xl bg-md-surface-container-low border border-md-outline/5 flex flex-col justify-between h-28 hover:border-md-primary/20 transition-all select-none">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono text-md-outline uppercase font-bold tracking-wider">
-                {isUrdu ? "مفوضہ کلائنٹس" : "Assigned Clients"}
+          <button
+            type="button"
+            onClick={() => setCurrentModule(ModuleId.MY_CLIENTS)}
+            className="p-4 rounded-2xl bg-md-surface-container-low border border-md-outline/5 flex flex-col justify-between h-28 hover:border-md-primary/30 hover:bg-md-surface-container transition-all text-left rtl:text-right cursor-pointer group active:scale-98"
+          >
+            <div className="flex items-center justify-between w-full">
+              <span className="text-[10px] font-mono text-md-outline uppercase font-bold tracking-wider group-hover:text-md-primary transition">
+                {isUrdu ? "مفوضہ کلائنٹس ↗" : "Assigned Clients ↗"}
               </span>
               <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600"><Users size={16} /></div>
             </div>
             <div>
               <span className="text-2xl font-black text-md-on-surface block leading-none">{assignedClientsCount}</span>
               <span className="text-[9px] text-md-on-surface-variant/70 mt-1 block">
-                {isUrdu ? "روسٹر کی کل گنجائش" : "Roster total capacity"}
+                {isUrdu ? "کلک کریں اور کلائنٹس دیکھیں" : "Tap to open Assigned Clients"}
               </span>
             </div>
-          </div>
+          </button>
 
           {/* Summary Card 2 */}
-          <div className="p-4 rounded-2xl bg-md-surface-container-low border border-md-outline/5 flex flex-col justify-between h-28 hover:border-md-primary/20 transition-all select-none">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono text-md-outline uppercase font-bold tracking-wider">
-                {isUrdu ? "آج کے فالو اپس" : "Today's Follow-ups"}
+          <button
+            type="button"
+            onClick={() => setCurrentModule(ModuleId.FOLLOW_UP)}
+            className="p-4 rounded-2xl bg-md-surface-container-low border border-md-outline/5 flex flex-col justify-between h-28 hover:border-md-primary/30 hover:bg-md-surface-container transition-all text-left rtl:text-right cursor-pointer group active:scale-98"
+          >
+            <div className="flex items-center justify-between w-full">
+              <span className="text-[10px] font-mono text-md-outline uppercase font-bold tracking-wider group-hover:text-md-primary transition">
+                {isUrdu ? "آج کے فالو اپس ↗" : "Today's Follow-ups ↗"}
               </span>
               <div className="p-1.5 rounded-lg bg-md-primary/15 text-md-primary"><PhoneCall size={16} /></div>
             </div>
             <div>
               <span className="text-2xl font-black text-md-on-surface block leading-none">{todaysFollowupsCount}</span>
               <span className="text-[9px] text-md-on-surface-variant/70 mt-1 block">
-                {isUrdu ? "آج کے لیے شیڈول" : "Scheduled for today"}
+                {isUrdu ? "کلک کریں اور فالو اپس کھولیں" : "Tap to view Scheduled Follow-ups"}
               </span>
             </div>
-          </div>
+          </button>
 
           {/* Summary Card 3 */}
-          <div className="p-4 rounded-2xl bg-md-surface-container-low border border-md-outline/5 flex flex-col justify-between h-28 hover:border-md-primary/20 transition-all select-none">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono text-md-outline uppercase font-bold tracking-wider">
-                {isUrdu ? "زائد المیعاد فالو اپس" : "Overdue Follow-ups"}
+          <button
+            type="button"
+            onClick={() => setCurrentModule(ModuleId.FOLLOW_UP)}
+            className="p-4 rounded-2xl bg-md-surface-container-low border border-md-outline/5 flex flex-col justify-between h-28 hover:border-red-300 hover:bg-red-50/20 dark:hover:bg-red-950/20 transition-all text-left rtl:text-right cursor-pointer group active:scale-98"
+          >
+            <div className="flex items-center justify-between w-full">
+              <span className="text-[10px] font-mono text-md-outline uppercase font-bold tracking-wider group-hover:text-red-600 transition">
+                {isUrdu ? "زائد المیعاد فالو اپس ↗" : "Overdue Follow-ups ↗"}
               </span>
               <div className="p-1.5 rounded-lg bg-red-500/10 text-red-600"><AlertOctagon size={16} /></div>
             </div>
             <div>
               <span className={`text-2xl font-black block leading-none ${overdueFollowupsCount > 0 ? 'text-red-600' : 'text-md-on-surface'}`}>{overdueFollowupsCount}</span>
               <span className="text-[9px] text-md-on-surface-variant/70 mt-1 block">
-                {isUrdu ? "فوری توجہ طلب" : "Awaiting remediation"}
+                {isUrdu ? "فوری توجہ طلب فالو اپس" : "Tap to view Overdue Outreach"}
               </span>
             </div>
-          </div>
+          </button>
 
           {/* Summary Card 4 */}
-          <div className="p-4 rounded-2xl bg-md-surface-container-low border border-md-outline/5 flex flex-col justify-between h-28 hover:border-md-primary/20 transition-all select-none">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono text-md-outline uppercase font-bold tracking-wider">
-                {isUrdu ? "زیر التواء ٹریننگ" : "Pending Trainings"}
+          <button
+            type="button"
+            onClick={() => setCurrentModule(ModuleId.TRAINING)}
+            className="p-4 rounded-2xl bg-md-surface-container-low border border-md-outline/5 flex flex-col justify-between h-28 hover:border-teal-300 hover:bg-teal-50/20 dark:hover:bg-teal-950/20 transition-all text-left rtl:text-right cursor-pointer group active:scale-98"
+          >
+            <div className="flex items-center justify-between w-full">
+              <span className="text-[10px] font-mono text-md-outline uppercase font-bold tracking-wider group-hover:text-teal-600 transition">
+                {isUrdu ? "زیر التواء ٹریننگ ↗" : "Pending Trainings ↗"}
               </span>
               <div className="p-1.5 rounded-lg bg-teal-500/10 text-teal-600"><GraduationCap size={16} /></div>
             </div>
             <div>
               <span className="text-2xl font-black text-md-on-surface block leading-none">{pendingTrainingsCount}</span>
               <span className="text-[9px] text-md-on-surface-variant/70 mt-1 block">
-                {isUrdu ? "ضروری کلائنٹ سیشنز" : "Required Client sessions"}
+                {isUrdu ? "ٹریننگ شیڈول کھولیں" : "Tap to open Training Portal"}
               </span>
             </div>
-          </div>
+          </button>
 
           {/* Summary Card 5 */}
-          <div className="p-4 rounded-2xl bg-md-surface-container-low border border-md-outline/5 flex flex-col justify-between h-28 hover:border-md-primary/20 transition-all select-none">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono text-md-outline uppercase font-bold tracking-wider">
-                {isUrdu ? "آج کے ورک لاگز" : "Today's Work Logs"}
+          <button
+            type="button"
+            onClick={() => setCurrentModule(ModuleId.WORK_LOG_HISTORY)}
+            className="p-4 rounded-2xl bg-md-surface-container-low border border-md-outline/5 flex flex-col justify-between h-28 hover:border-purple-300 hover:bg-purple-50/20 dark:hover:bg-purple-950/20 transition-all text-left rtl:text-right cursor-pointer group active:scale-98"
+          >
+            <div className="flex items-center justify-between w-full">
+              <span className="text-[10px] font-mono text-md-outline uppercase font-bold tracking-wider group-hover:text-purple-600 transition">
+                {isUrdu ? "آج کے ورک لاگز ↗" : "Today's Work Logs ↗"}
               </span>
               <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-600"><ClipboardPen size={16} /></div>
             </div>
             <div>
               <span className="text-2xl font-black text-md-on-surface block leading-none">{todaysWorkLogsCount}</span>
               <span className="text-[9px] text-md-on-surface-variant/70 mt-1 block">
-                {isUrdu ? "کامیابی سے درج" : "Submissions completed"}
+                {isUrdu ? "ورک لاگ ہسٹری کھولیں" : "Tap to open Work Log History"}
               </span>
             </div>
-          </div>
+          </button>
 
           {/* Summary Card 6 */}
-          <div className="p-4 rounded-2xl bg-md-surface-container-low border border-md-outline/5 flex flex-col justify-between h-28 hover:border-md-primary/20 transition-all select-none">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono text-md-outline uppercase font-bold tracking-wider">
-                {isUrdu ? "باقی ماندہ کام" : "Pending Tasks"}
+          <button
+            type="button"
+            onClick={() => setCurrentModule(ModuleId.FOLLOW_UP)}
+            className="p-4 rounded-2xl bg-md-surface-container-low border border-md-outline/5 flex flex-col justify-between h-28 hover:border-amber-300 hover:bg-amber-50/20 dark:hover:bg-amber-950/20 transition-all text-left rtl:text-right cursor-pointer group active:scale-98"
+          >
+            <div className="flex items-center justify-between w-full">
+              <span className="text-[10px] font-mono text-md-outline uppercase font-bold tracking-wider group-hover:text-amber-600 transition">
+                {isUrdu ? "باقی ماندہ کام ↗" : "Pending Tasks ↗"}
               </span>
               <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600"><ListTodo size={16} /></div>
             </div>
             <div>
               <span className="text-2xl font-black text-md-on-surface block leading-none">{pendingTasksCount}</span>
               <span className="text-[9px] text-md-on-surface-variant/70 mt-1 block">
-                {isUrdu ? "براہ راست قابل عمل لسٹ" : "Direct actionable queue"}
+                {isUrdu ? "باقی ماندہ کاموں کی لسٹ کھولیں" : "Tap to open actionable task queue"}
               </span>
             </div>
-          </div>
+          </button>
         </div>
       </div>
 

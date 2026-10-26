@@ -682,3 +682,25 @@ export interface InternalMessage {
   ticketId?: string;
   replyToId?: string;
 }
+
+export interface ActiveWorkLogSession {
+  clientId: string;
+  clientName: string;
+  teId: string;
+  startTime: string; // "15:55:00"
+  startTimestamp: number; // Date.now()
+  isTimerRunning: boolean;
+  issueCategory: string;
+  workType: string;
+  callStatus: string;
+  summary: string;
+  clientStatus: 'Happy' | 'Unhappy' | '';
+  endTime: string;
+  durationMinutes: number;
+  durationFormatted: string;
+  proofLink: string;
+  hasProofDropdown: 'yes_now' | 'pending' | 'no';
+  strongReason: string;
+  nextFollowUpDate: string;
+}
+

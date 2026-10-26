@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ModuleId, WorkLogEntry, UserRole } from '../../types';
-import { calculateDurationFromTimes, detectSoftwareUsage, isValidProofLink } from '../../utils/helpers';
+import { calculateDurationFromTimes, detectSoftwareUsage, isValidProofLink, formatTimeHHMMSS } from '../../utils/helpers';
 import { CONFIG } from '../../config/appConfig';
 import { DailyTeamSummaryModal } from '../common/DailyTeamSummaryModal';
 import { authService } from '../../utils/auth';
@@ -48,22 +48,31 @@ export const DailyWorkLogView: React.FC<DailyWorkLogViewProps> = ({ id }) => {
     selectedClientId: globalSelectedClientId,
     setSelectedClientId: setGlobalSelectedClientId,
     addWorkLog,
-    addTicket,
     setCurrentModule,
     setIsBlankWorkspace,
     setWhatsAppModalOpen,
-    language
+    language,
+    activeLogSession,
+    updateActiveLogSession,
+    clearActiveLogSession
   } = useApp();
 
   const isUrdu = language === 'ur';
 
-  // 1) Select Client (Auto-populated if opened from My Assigned Clients, initially blank otherwise)
-  const [selectedClientId, setSelectedClientId] = useState<string>(() => globalSelectedClientId || '');
+  // 1) Select Client (Restored from activeLogSession if user navigated away, or globalSelectedClientId)
+  const [selectedClientId, setSelectedClientId] = useState<string>(
+    () => activeLogSession?.clientId || globalSelectedClientId || ''
+  );
 
   // 2) Auto Sessions Timer (Start Time ONLY in this box - requirement #2)
-  const [startTime, setStartTime] = useState<string>('');
-  const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
-  const [timerSeconds, setTimerSeconds] = useState<number>(0);
+  const [startTime, setStartTime] = useState<string>(() => activeLogSession?.startTime || '');
+  const [isTimerRunning, setIsTimerRunning] = useState<boolean>(() => activeLogSession?.isTimerRunning || false);
+  const [timerSeconds, setTimerSeconds] = useState<number>(() => {
+    if (activeLogSession?.isTimerRunning && activeLogSession.startTimestamp) {
+      return Math.max(0, Math.floor((Date.now() - activeLogSession.startTimestamp) / 1000));
+    }
+    return 0;
+  });
   const [timerAutoNotice, setTimerAutoNotice] = useState<string>('');
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -76,7 +85,7 @@ export const DailyWorkLogView: React.FC<DailyWorkLogViewProps> = ({ id }) => {
     'OTHER',
     'COO Meeting'
   ];
-  const [issueCategory, setIssueCategory] = useState<string>('Technical Support');
+  const [issueCategory, setIssueCategory] = useState<string>(() => activeLogSession?.issueCategory || 'Technical Support');
 
   // 4) Work Type (Exact 6 options - requirement #4)
   const workTypeOptions = [
@@ -87,7 +96,7 @@ export const DailyWorkLogView: React.FC<DailyWorkLogViewProps> = ({ id }) => {
     'Other',
     'Client Software Review'
   ];
-  const [workType, setWorkType] = useState<string>('Phone call');
+  const [workType, setWorkType] = useState<string>(() => activeLogSession?.workType || 'Phone call');
 
   // 5) Call Status (Exact 6 options - requirement #5)
   const callStatusOptions = [
@@ -98,32 +107,31 @@ export const DailyWorkLogView: React.FC<DailyWorkLogViewProps> = ({ id }) => {
     'Not Answering',
     'checked work'
   ];
-  const [callStatus, setCallStatus] = useState<string>('Connected');
+  const [callStatus, setCallStatus] = useState<string>(() => activeLogSession?.callStatus || 'Connected');
 
   // 6) Summary Box with Urdu, Voice Note, AI Polish (requirement #6)
-  const [summary, setSummary] = useState<string>('');
+  const [summary, setSummary] = useState<string>(() => activeLogSession?.summary || '');
   const [isUrduKeyboard, setIsUrduKeyboard] = useState<boolean>(isUrdu);
   const [isListening, setIsListening] = useState<boolean>(false);
   const [isPolishing, setIsPolishing] = useState<boolean>(false);
   const speechRecognitionRef = useRef<any>(null);
 
   // 7) Next Follow Up (requirement #7)
-  const [nextFollowUpDate, setNextFollowUpDate] = useState<string>('');
+  const [nextFollowUpDate, setNextFollowUpDate] = useState<string>(() => activeLogSession?.nextFollowUpDate || '');
 
   // 8) Client Status (Happy - Unhappy - requirement #8)
-  const [clientStatus, setClientStatus] = useState<'Happy' | 'Unhappy' | ''>('');
+  const [clientStatus, setClientStatus] = useState<'Happy' | 'Unhappy' | ''>(() => activeLogSession?.clientStatus || '');
 
   // 9) End Time & Duration (Auto appears on Client Status select & NOT editable - requirement #9)
-  const [endTime, setEndTime] = useState<string>('');
-  const [durationMinutes, setDurationMinutes] = useState<number>(0);
-  const [durationFormatted, setDurationFormatted] = useState<string>('00:00:00');
+  const [endTime, setEndTime] = useState<string>(() => activeLogSession?.endTime || '');
+  const [durationMinutes, setDurationMinutes] = useState<number>(() => activeLogSession?.durationMinutes || 0);
+  const [durationFormatted, setDurationFormatted] = useState<string>(() => activeLogSession?.durationFormatted || '00:00:00');
 
   // 10) Proof Link & Reason Box (requirement #1: Dropdown Hai/Nahi & Strong Reason)
-  const [proofLink, setProofLink] = useState<string>('');
+  const [proofLink, setProofLink] = useState<string>(() => activeLogSession?.proofLink || '');
   const [proofMissingReason, setProofMissingReason] = useState<string>('');
-  const [hasProofDropdown, setHasProofDropdown] = useState<'yes_now' | 'pending' | 'no'>('yes_now');
-  const [strongReason, setStrongReason] = useState<string>('');
-  const [autoRaiseTicket, setAutoRaiseTicket] = useState<boolean>(false);
+  const [hasProofDropdown, setHasProofDropdown] = useState<'yes_now' | 'pending' | 'no'>(() => activeLogSession?.hasProofDropdown || 'yes_now');
+  const [strongReason, setStrongReason] = useState<string>(() => activeLogSession?.strongReason || '');
 
   // Additional Submission & Status States
   const [logDate, setLogDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
@@ -146,19 +154,26 @@ export const DailyWorkLogView: React.FC<DailyWorkLogViewProps> = ({ id }) => {
   // Clean URL for display
   const clientUrl = selectedClient?.url || selectedClient?.deploymentUrl || '';
 
-  // Timer Interval
+  // Timer Interval strictly synced with startTimestamp so navigating away preserves the elapsed time
   useEffect(() => {
     if (isTimerRunning) {
-      timerRef.current = setInterval(() => {
-        setTimerSeconds(s => s + 1);
-      }, 1000);
+      const syncTimer = () => {
+        if (activeLogSession?.startTimestamp) {
+          const elapsed = Math.max(0, Math.floor((Date.now() - activeLogSession.startTimestamp) / 1000));
+          setTimerSeconds(elapsed);
+        } else {
+          setTimerSeconds(s => s + 1);
+        }
+      };
+      syncTimer();
+      timerRef.current = setInterval(syncTimer, 1000);
     } else if (timerRef.current) {
       clearInterval(timerRef.current);
     }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isTimerRunning]);
+  }, [isTimerRunning, activeLogSession?.startTimestamp]);
 
   // Requirement #1: When opened from "My Assigned Clients", automatically load and start work log for the client
   useEffect(() => {
@@ -172,7 +187,10 @@ export const DailyWorkLogView: React.FC<DailyWorkLogViewProps> = ({ id }) => {
     setSelectedClientId(clientId);
     setGlobalSelectedClientId(clientId || null);
     if (clientId) {
-      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+      const cl = clients.find(c => c.id === clientId);
+      const now = new Date();
+      const nowStr = formatTimeHHMMSS(now);
+      const startTs = Date.now();
       setStartTime(nowStr);
       setTimerSeconds(0);
       setIsTimerRunning(true);
@@ -181,7 +199,28 @@ export const DailyWorkLogView: React.FC<DailyWorkLogViewProps> = ({ id }) => {
       setDurationMinutes(0);
       setDurationFormatted('00:00:00');
       setClientStatus('');
-      const cl = clients.find(c => c.id === clientId);
+
+      updateActiveLogSession({
+        clientId,
+        clientName: cl?.name || 'Client',
+        teId: cl?.teId || 'TE-101',
+        startTime: nowStr,
+        startTimestamp: startTs,
+        isTimerRunning: true,
+        issueCategory,
+        workType,
+        callStatus,
+        summary,
+        clientStatus: '',
+        endTime: '',
+        durationMinutes: 0,
+        durationFormatted: '00:00:00',
+        hasProofDropdown,
+        proofLink,
+        strongReason,
+        nextFollowUpDate
+      });
+
       setTimerAutoNotice(
         isUrdu
           ? `⏱️ کلائنٹ (${cl?.name}) منتخب ہوتے ہی آٹو سیشن ٹائمر شروع ہو گیا ہے! (وقت: ${nowStr})`
@@ -191,28 +230,40 @@ export const DailyWorkLogView: React.FC<DailyWorkLogViewProps> = ({ id }) => {
       setIsTimerRunning(false);
       setTimerSeconds(0);
       setStartTime('');
+      clearActiveLogSession();
     }
   };
 
   // Requirement #8 & #9: "end time client status select karte hi end time aur duration aana aur ye editable hargiz Nhi rehna"
   const handleSelectClientStatus = (val: 'Happy' | 'Unhappy') => {
     setClientStatus(val);
-    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    const now = new Date();
+    const nowStr = formatTimeHHMMSS(now);
     setEndTime(nowStr);
     setIsTimerRunning(false);
 
-    // Calculate duration strictly
-    let elapsed = timerSeconds > 0 ? Math.max(1, Math.ceil(timerSeconds / 60)) : 15;
-    if (startTime) {
+    // Calculate duration strictly from start timestamp or times
+    let elapsed = 15;
+    if (activeLogSession?.startTimestamp) {
+      const diffSecs = Math.max(1, Math.floor((Date.now() - activeLogSession.startTimestamp) / 1000));
+      elapsed = Math.max(1, Math.round(diffSecs / 60));
+    } else if (startTime) {
       const calc = calculateDurationFromTimes(startTime, nowStr);
-      if (calc.durationMinutes > 0) {
-        elapsed = calc.durationMinutes;
-      }
+      if (calc.durationMinutes > 0) elapsed = calc.durationMinutes;
     }
     setDurationMinutes(elapsed);
     const hrs = Math.floor(elapsed / 60);
     const mins = elapsed % 60;
-    setDurationFormatted(`${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00`);
+    const durFormatted = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00`;
+    setDurationFormatted(durFormatted);
+
+    updateActiveLogSession({
+      isTimerRunning: false,
+      clientStatus: val,
+      endTime: nowStr,
+      durationMinutes: elapsed,
+      durationFormatted: durFormatted
+    });
 
     setTimerAutoNotice(
       isUrdu
@@ -301,6 +352,7 @@ Format as clean professional executive summary text without bullet points or pre
     if (isTimerRunning) {
       setIsTimerRunning(false);
     }
+    clearActiveLogSession();
     setSelectedClientId('');
     setStartTime('');
     setEndTime('');
@@ -340,9 +392,8 @@ Format as clean professional executive summary text without bullet points or pre
     }
 
     const isQuickComms = /phone|whatsapp/i.test(workType);
-    const isMeetOrReview = /meet|google meet|client software review|review|remote|anydesk/i.test(workType);
 
-    // Requirement #1: Only require strong reason if call > 10 mins and no proof link
+    // 10-Minute Policy (Requirement #4): Only require strong reason if call > 10 mins and no proof link
     if (isQuickComms && durationMinutes > 10 && hasProofDropdown === 'no' && !strongReason.trim() && !proofMissingReason.trim()) {
       errors.push(
         isUrdu
@@ -357,8 +408,10 @@ Format as clean professional executive summary text without bullet points or pre
     }
 
     setIsSubmitting(true);
+    // 10-Minute Policy: Calls under 10 minutes do NOT require proof and are automatically approved without PENDING status!
+    const isUnder10Mins = durationMinutes <= 10;
     const hasDirectProof = Boolean(proofLink.trim() && proofLink.trim().length > 3);
-    const isPendingProof = !hasDirectProof && hasProofDropdown === 'pending';
+    const isPendingProof = !isUnder10Mins && !hasDirectProof && hasProofDropdown === 'pending';
     const effectiveProofLink = hasDirectProof
       ? proofLink.trim()
       : (isPendingProof ? 'PENDING' : '');
@@ -391,7 +444,7 @@ Format as clean professional executive summary text without bullet points or pre
       proofLink: effectiveProofLink,
       proofMissingReason: effectiveReason,
       isProofPending: isPendingProof,
-      approvalStatus: isPendingProof ? 'Pending' : 'Approved',
+      approvalStatus: isUnder10Mins ? 'Approved' : (isPendingProof ? 'Pending' : 'Approved'),
       syncStatus: isPendingProof ? 'Pending Proof Sync' : 'Synchronized',
       specialManagerRemark: selectedClient?.noteSaad || '',
       saadNote: selectedClient?.noteSaad || '',
@@ -400,33 +453,12 @@ Format as clean professional executive summary text without bullet points or pre
 
     try {
       await addWorkLog(payload as any);
-
-      // Auto-Ticket Raise: If user checked autoRaiseTicket or if issue is Technical Escalation
-      if (autoRaiseTicket || issueCategory === 'Technical Escalation') {
-        try {
-          await addTicket({
-            teId: selectedClient?.teId || teId,
-            clientId: selectedClientId,
-            clientName: selectedClient?.name || 'Client',
-            issueCategory: issueCategory || 'Technical Escalation',
-            issueDescription: summary.trim() || 'Auto-raised from Daily Work Log',
-            priority: clientStatus === 'Unhappy' ? 'Critical' : 'High',
-            status: 'In Progress',
-            assignedExecutive: executiveName,
-            createdBy: executiveName,
-            raisedFrom: executiveName,
-            raisedTo: 'COO (Chief Operating Officer)',
-            attachmentUrl: effectiveProofLink && effectiveProofLink !== 'PENDING' ? effectiveProofLink : undefined
-          } as any);
-        } catch (tktErr) {
-          console.warn('[DailyWorkLog] Auto-raise ticket sync notice:', tktErr);
-        }
-      }
+      clearActiveLogSession();
 
       setShowSuccessAlert(true);
       setIsSubmitting(false);
 
-      // Requirement: "daily work log me ek client Ka kaam khatam huwa to wo page close Hona aur main page aa k phir SE work log Ka page open Karna aysa system rakho"
+      // Reset and route back cleanly
       setTimeout(() => {
         handleResetForNextClient();
         setShowSuccessAlert(false);
@@ -1052,47 +1084,6 @@ Format as clean professional executive summary text without bullet points or pre
                 )}
               </div>
             )}
-          </div>
-
-          {/* STEP 11: Auto Ticket Raise (Direct Sheet & COO Sync) */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-800/60 space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-black text-indigo-900 dark:text-indigo-200 uppercase flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">
-                  11
-                </span>
-                <span>
-                  {isUrdu
-                    ? 'ٹکٹ جنریٹ کریں (Auto Ticket Raise to COO & Sheet)?'
-                    : '11. Auto Ticket Raise (Direct to Sheet & COO)?'}
-                </span>
-              </label>
-
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200 font-bold">
-                Ticket Rase Sync
-              </span>
-            </div>
-
-            <label className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-700/80 cursor-pointer hover:bg-indigo-50/50 dark:hover:bg-slate-750 transition">
-              <input
-                type="checkbox"
-                checked={autoRaiseTicket}
-                onChange={e => setAutoRaiseTicket(e.target.checked)}
-                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
-              />
-              <div className="text-xs">
-                <span className="font-bold text-slate-800 dark:text-slate-100 block">
-                  {isUrdu
-                    ? 'ہاں، اس ایشو کا ٹکٹ براہِ راست سی او او (COO) اور گوگل شیٹ میں بھیجیں'
-                    : 'Yes, automatically raise a Support Ticket to COO & sync to Google Sheet (Ticket Rase)'}
-                </span>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {isUrdu
-                    ? 'ورک لاگ کے ساتھ ساتھ "Ticket Rase" شیٹ میں نیا ٹکٹ فوری طور پر درج ہو جائے گا۔'
-                    : 'A formal ticket with this client and summary will be posted simultaneously to Ticket Rase sheet.'}
-                </span>
-              </div>
-            </label>
           </div>
 
           {/* Form Action Buttons: Submit Only (Reset button removed per user instruction) */}
