@@ -53,6 +53,7 @@ export const ALL_CONFIGURABLE_MODULES: { id: ModuleId; labelEn: string; labelUr:
   { id: ModuleId.USER_MANAGEMENT, labelEn: 'Team User Management', labelUr: 'ٹیم یوزر مینیجمنٹ', category: 'Administration' },
   { id: ModuleId.ROLE_MANAGEMENT, labelEn: 'Rule & Permission Management', labelUr: 'رول و پرمیشن مینیجمنٹ', category: 'Administration' },
   { id: ModuleId.SETTINGS, labelEn: 'System Settings', labelUr: 'سسٹم کنفیگریشن و سیٹنگز', category: 'Administration' },
+  { id: ModuleId.CLIENT_USAGE_BILLING, labelEn: 'Client Details & Usage (Billing)', labelUr: 'کلائنٹ تفصیلات، بلنگ و استعمال', category: 'Administration' },
   { id: ModuleId.AI_ASSISTANT, labelEn: 'AI Support Assistant', labelUr: 'اے آئی سپورٹ اسسٹنٹ', category: 'AI' },
   { id: ModuleId.AI_MESSAGE_STUDIO, labelEn: 'AI Polish & Readymade Messages', labelUr: 'اے آئی پالش اور ریڈی میڈ پیغامات', category: 'AI' },
 ];
@@ -79,6 +80,7 @@ const LEADERSHIP_MODULE_IDS: ModuleId[] = [
   ModuleId.NOTIFICATIONS,
   ModuleId.USER_MANAGEMENT,
   ModuleId.ROLE_MANAGEMENT,
+  ModuleId.CLIENT_USAGE_BILLING,
   ModuleId.SETTINGS,
   ModuleId.AI_ASSISTANT
 ];

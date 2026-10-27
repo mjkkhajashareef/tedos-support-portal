@@ -37,6 +37,7 @@ import { SheetColumnSyncModal } from './components/common/SheetColumnSyncModal';
 import { GeminiChatbotView } from './components/gemini/GeminiChatbotView';
 import { GeminiFloatingWidget } from './components/gemini/GeminiFloatingWidget';
 import { AIMessageStudioView } from './components/views/AIMessageStudioView';
+import { ClientUsageBillingView } from './components/views/ClientUsageBillingView';
 
 function RootView() {
   const {
@@ -116,6 +117,8 @@ function RootView() {
         return <UserManagementView />;
       case ModuleId.ROLE_MANAGEMENT:
         return <RoleManagementView />;
+      case ModuleId.CLIENT_USAGE_BILLING:
+        return <ClientUsageBillingView />;
       case ModuleId.PAYROLL:
         return <PayrollPortalView />;
       case ModuleId.EXECUTIVE_INBOX:

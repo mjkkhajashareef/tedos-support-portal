@@ -30,7 +30,8 @@ import {
   ArrowUpRight,
   SlidersHorizontal,
   CheckCircle2,
-  Globe
+  Globe,
+  Receipt
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -60,6 +61,7 @@ const MODULE_ICON_MAP: Record<ModuleId, React.ComponentType<{ size?: number; cla
   [ModuleId.ROLE_MANAGEMENT]: ShieldAlert,
   [ModuleId.PAYROLL]: Briefcase,
   [ModuleId.AI_MESSAGE_STUDIO]: Sparkles,
+  [ModuleId.CLIENT_USAGE_BILLING]: Receipt,
 };
 
 const MODULE_THEME_MAP: Record<ModuleId, { bg: string; text: string; border: string; hover: string; gradient: string }> = {
@@ -237,6 +239,13 @@ const MODULE_THEME_MAP: Record<ModuleId, { bg: string; text: string; border: str
     border: 'border-purple-500/30',
     hover: 'hover:border-purple-500 hover:shadow-purple-500/10',
     gradient: 'from-purple-600 to-indigo-600'
+  },
+  [ModuleId.CLIENT_USAGE_BILLING]: {
+    bg: 'bg-emerald-500/10 dark:bg-emerald-500/15',
+    text: 'text-emerald-600 dark:text-emerald-400',
+    border: 'border-emerald-500/30',
+    hover: 'hover:border-emerald-500 hover:shadow-emerald-500/10',
+    gradient: 'from-emerald-600 to-teal-700'
   }
 };
 
@@ -340,6 +349,10 @@ const MODULE_DESCRIPTIONS: Record<ModuleId, { en: string; ur: string }> = {
   [ModuleId.AI_MESSAGE_STUDIO]: {
     en: 'TaleemPro (Urdu) & Edsof (English) branded WhatsApp messages and Google Reviews',
     ur: 'تعلیم پرو (اردو) اور ایڈسوف (انگلش) پیغامات، گوگل ریویوز اور لیٹر ہیڈ اسٹوڈیو'
+  },
+  [ModuleId.CLIENT_USAGE_BILLING]: {
+    en: 'Client usage metrics, cloud storage GB, annual AMC & renewal billing',
+    ur: 'کلائنٹ تفصیلات، کلاؤڈ اسٹوریج، سالانہ AMC اور تجدید بلنگ'
   }
 };
 

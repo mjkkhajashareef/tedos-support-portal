@@ -254,14 +254,20 @@ export const loadStoredUsers = (): User[] => {
         if (existingIdx === -1) {
           merged.push(defUser);
         } else {
-          // Preserve modified password, employeeId, email, and mobile! Do NOT overwrite with hardcoded defaults
+          // Preserve all user-edited fields: name, mobile, email, employeeId, department, salary, role, clients
           merged[existingIdx] = {
             ...defUser,
             ...merged[existingIdx],
+            name: merged[existingIdx].name || defUser.name,
             password: merged[existingIdx].password || defUser.password,
             employeeId: merged[existingIdx].employeeId || defUser.employeeId,
             email: merged[existingIdx].email || defUser.email,
             mobile: merged[existingIdx].mobile || defUser.mobile,
+            role: merged[existingIdx].role || defUser.role,
+            department: merged[existingIdx].department || defUser.department,
+            baseSalary: merged[existingIdx].baseSalary !== undefined ? merged[existingIdx].baseSalary : defUser.baseSalary,
+            monthlyIncentive: merged[existingIdx].monthlyIncentive !== undefined ? merged[existingIdx].monthlyIncentive : defUser.monthlyIncentive,
+            assignedClients: merged[existingIdx].assignedClients || defUser.assignedClients,
             active: true,
             status: UserStatus.ACTIVE
           };

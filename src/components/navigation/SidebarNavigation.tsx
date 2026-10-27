@@ -25,7 +25,8 @@ import {
   ShieldAlert,
   BookOpen,
   Compass,
-  Wand2
+  Wand2,
+  Receipt
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { ModuleId } from '../../types';
@@ -104,6 +105,11 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ id }) => {
       icon: MessageSquare
     },
     { id: ModuleId.USER_MANAGEMENT, label: t.userManagement, icon: Users },
+    {
+      id: ModuleId.CLIENT_USAGE_BILLING,
+      label: language === 'ur' ? 'کلائنٹ تفصیلات، بلنگ و استعمال' : 'Client Details & Usage (Billing)',
+      icon: Receipt
+    },
     {
       id: ModuleId.ROLE_MANAGEMENT,
       label: language === 'ur' ? 'رول و پرمیشن مینیجمنٹ' : 'Rule Management',

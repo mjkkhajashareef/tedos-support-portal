@@ -43,6 +43,43 @@ export enum ModuleId {
   ROLE_MANAGEMENT = 'role_management',
   POLICIES = 'policies',
   PAYROLL = 'payroll',
+  CLIENT_USAGE_BILLING = 'client_usage_billing',
+}
+
+export const OFFICIAL_DEPARTMENTS = [
+  'EdSof',
+  'TaleemPro',
+  'PhilSof',
+  'Website',
+  'Accounts Service',
+  'Freelancing',
+  'Operations',
+  'Marketing',
+  'Accounts Billing',
+  'COO',
+  'Director'
+] as const;
+
+export type OfficialDepartment = typeof OFFICIAL_DEPARTMENTS[number];
+
+export interface ClientUsageBillingEntry {
+  id: string;
+  teId: string;
+  clientName: string;
+  department: OfficialDepartment | string;
+  softwareUrl?: string;
+  plan: string;
+  studentCount: number;
+  storageUsageGb: number;
+  billingFrequency: 'Monthly' | 'Quarterly' | 'Half-Yearly' | 'Yearly';
+  amcAmount: number;
+  paymentStatus: 'Paid' | 'Pending' | 'Overdue' | 'Grace Period';
+  lastPaymentDate: string;
+  nextRenewalDate: string;
+  operationsStatus: 'Active' | 'Under Migration' | 'Suspended' | 'On Trial';
+  activeModules: string[];
+  remarks?: string;
+  updatedAt: string;
 }
 
 export enum UserStatus {

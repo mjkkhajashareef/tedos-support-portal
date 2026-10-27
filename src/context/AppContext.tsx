@@ -1347,25 +1347,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateUser = async (user: User): Promise<User | undefined> => {
     try {
       const current = loadStoredUsers();
-      const cleanMobile = normalize10DigitMobile(user.mobile);
+      const normalizePhone = (raw?: string) => {
+        const digits = (raw || '').replace(/\D/g, '');
+        return digits.length >= 10 ? digits.slice(-10) : digits;
+      };
+      const cleanMobile = normalizePhone(user.mobile);
+
+      const isSameUser = (u: User) => {
+        if (u.id && user.id && u.id === user.id) return true;
+        if (u.employeeId && user.employeeId && u.employeeId.trim().toLowerCase() === user.employeeId.trim().toLowerCase()) return true;
+        if (u.email && user.email && u.email.trim().toLowerCase() === user.email.trim().toLowerCase()) return true;
+        return false;
+      };
+
       if (cleanMobile && cleanMobile.length === 10) {
-        const dupUser = current.some(
-          u => u.id !== user.id && normalize10DigitMobile(u.mobile) === cleanMobile
+        const dupUser = current.find(
+          u => !isSameUser(u) && normalizePhone(u.mobile) === cleanMobile
         );
         if (dupUser) {
-          throw new Error('Ek mobile no. ki ek hi ID banni chahiye! Yeh mobile number pehle se kisi doosri ID par registered hai.');
+          throw new Error(`Ek mobile no. ki ek hi ID banni chahiye! Yeh mobile number pehle se ${dupUser.name} (${dupUser.employeeId}) par registered hai.`);
         }
       }
       if (user.employeeId) {
-        const dupEmp = current.some(
-          u => u.id !== user.id && (u.employeeId || '').toLowerCase() === user.employeeId.trim().toLowerCase()
+        const dupEmp = current.find(
+          u => !isSameUser(u) && (u.employeeId || '').trim().toLowerCase() === user.employeeId.trim().toLowerCase()
         );
         if (dupEmp) {
-          throw new Error(`Employee ID "${user.employeeId}" pehle se kisi doosre user ko assigned hai.`);
+          throw new Error(`Employee ID "${user.employeeId}" pehle se ${dupEmp.name} ko assigned hai.`);
         }
       }
 
-      const updatedList = current.map(u => (u.id === user.id ? { ...u, ...user } : u));
+      let found = false;
+      const updatedList = current.map(u => {
+        if (isSameUser(u)) {
+          found = true;
+          return {
+            ...u,
+            ...user,
+            id: u.id || user.id, // Keep stable ID
+            employeeId: user.employeeId.trim(),
+            name: user.name.trim(),
+            email: user.email.trim().toLowerCase(),
+            mobile: user.mobile.trim(),
+            department: user.department || u.department,
+            role: user.role || u.role,
+            baseSalary: user.baseSalary !== undefined ? Number(user.baseSalary) : u.baseSalary,
+            monthlyIncentive: user.monthlyIncentive !== undefined ? Number(user.monthlyIncentive) : u.monthlyIncentive,
+            assignedClients: user.assignedClients || u.assignedClients || []
+          };
+        }
+        return u;
+      });
+
+      if (!found) {
+        updatedList.push(user);
+      }
+
       saveStoredUsers(updatedList);
       setUsers(updatedList);
 

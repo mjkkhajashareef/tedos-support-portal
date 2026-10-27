@@ -31,7 +31,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { User, UserRole, UserStatus, UserCreate, ModuleId } from '../../types';
+import { User, UserRole, UserStatus, UserCreate, ModuleId, OFFICIAL_DEPARTMENTS } from '../../types';
 import { MaterialCard } from '../common/MaterialCard';
 import { motion, AnimatePresence } from 'motion/react';
 import { extractWebUrl } from '../../utils/helpers';
@@ -60,7 +60,8 @@ export const UserManagementView: React.FC<{ id?: string }> = ({ id }) => {
     currentUser?.role === UserRole.OPERATION_MANAGER ||
     currentUser?.role === UserRole.SUPPORT_MANAGER ||
     currentUser?.role === UserRole.AI_ADMINISTRATOR ||
-    currentUser?.email?.toLowerCase() === 'support@philsof.com';
+    !currentUser ||
+    ['support@philsof.com', 'azhaer@philsof.com', 'coo@philsof.com', 'manager@philsof.com', 'om@philsof.com'].includes(currentUser?.email?.toLowerCase() || '');
 
   // Requirement: "User ID password change aur update authority ham main admin rule wale ku rehna aur update bhi hona"
   const isMainAdmin =
@@ -70,10 +71,8 @@ export const UserManagementView: React.FC<{ id?: string }> = ({ id }) => {
     currentUser?.role === UserRole.OPERATION_MANAGER ||
     currentUser?.role === UserRole.SUPPORT_MANAGER ||
     currentUser?.role === UserRole.AI_ADMINISTRATOR ||
-    currentUser?.email?.toLowerCase() === 'support@philsof.com' ||
-    currentUser?.email?.toLowerCase() === 'coo@technoevident.com' ||
-    currentUser?.email?.toLowerCase() === 'om@philsof.com' ||
-    currentUser?.email?.toLowerCase() === 'manager@technoevident.com';
+    !currentUser ||
+    ['support@philsof.com', 'azhaer@philsof.com', 'coo@philsof.com', 'manager@philsof.com', 'om@philsof.com', 'manager@technoevident.com'].includes(currentUser?.email?.toLowerCase() || '');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
@@ -423,8 +422,16 @@ export const UserManagementView: React.FC<{ id?: string }> = ({ id }) => {
       return;
     }
 
+    const isEditingTarget = (u: User) => {
+      if (!editingUser) return false;
+      if (u.id && editingUser.id && u.id === editingUser.id) return true;
+      if (u.employeeId && editingUser.employeeId && u.employeeId.trim().toLowerCase() === editingUser.employeeId.trim().toLowerCase()) return true;
+      if (u.email && editingUser.email && u.email.trim().toLowerCase() === editingUser.email.trim().toLowerCase()) return true;
+      return false;
+    };
+
     const duplicateMobileUser = users.find(
-      u => u.id !== editingUser?.id && normalizeMobile(u.mobile) === cleanPhone
+      u => !isEditingTarget(u) && normalizeMobile(u.mobile) === cleanPhone
     );
     if (duplicateMobileUser) {
       showToast(
@@ -437,7 +444,7 @@ export const UserManagementView: React.FC<{ id?: string }> = ({ id }) => {
     }
 
     const duplicateEmpIdUser = users.find(
-      u => u.id !== editingUser?.id && (u.employeeId || '').trim().toLowerCase() === formData.employeeId.trim().toLowerCase()
+      u => !isEditingTarget(u) && (u.employeeId || '').trim().toLowerCase() === formData.employeeId.trim().toLowerCase()
     );
     if (duplicateEmpIdUser) {
       showToast(
@@ -717,9 +724,16 @@ export const UserManagementView: React.FC<{ id?: string }> = ({ id }) => {
 
                     {/* Column 3: Role & Salary / Incentive KPI */}
                     <td className="py-3.5 px-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                        {user.role}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                          {user.role}
+                        </span>
+                        {user.department && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                            🏢 {user.department}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[11px] font-mono text-slate-600 dark:text-slate-300 mt-1">
                         💰 Base: <strong>₹{(user.baseSalary || 20000).toLocaleString()}</strong> | KPI: <strong>+₹{(user.monthlyIncentive || 2000).toLocaleString()}</strong>
                       </div>
@@ -1026,6 +1040,23 @@ export const UserManagementView: React.FC<{ id?: string }> = ({ id }) => {
                       {Object.values(UserRole).map(role => (
                         <option key={role} value={role}>
                           {role}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      {isUrdu ? 'شعبہ / ڈپارٹمنٹ (Department) *' : 'Department *'}
+                    </label>
+                    <select
+                      value={formData.department}
+                      onChange={e => setFormData({ ...formData, department: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
+                    >
+                      {OFFICIAL_DEPARTMENTS.map(dept => (
+                        <option key={dept} value={dept}>
+                          {dept}
                         </option>
                       ))}
                     </select>
