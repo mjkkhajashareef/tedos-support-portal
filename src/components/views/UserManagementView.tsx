@@ -34,6 +34,7 @@ import { useApp } from '../../context/AppContext';
 import { User, UserRole, UserStatus, UserCreate, ModuleId } from '../../types';
 import { MaterialCard } from '../common/MaterialCard';
 import { motion, AnimatePresence } from 'motion/react';
+import { extractWebUrl } from '../../utils/helpers';
 
 export const UserManagementView: React.FC<{ id?: string }> = ({ id }) => {
   const {
@@ -250,65 +251,80 @@ export const UserManagementView: React.FC<{ id?: string }> = ({ id }) => {
               {isUrdu ? 'ابھی آپ کو کوئی کلائنٹ تفویض نہیں کیا گیا۔' : 'No clients currently assigned to your ID.'}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              {myAssignedClients.map(client => (
-                <div
-                  key={client.id}
-                  className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 hover:border-blue-500/40 transition flex flex-col justify-between gap-3"
-                >
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-600">
-                        {client.teId || client.id}
-                      </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600">
-                        {client.status}
-                      </span>
-                    </div>
-                    <h3 className="text-sm font-black text-slate-900 dark:text-white">{client.name}</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">📞 {client.phone}</p>
-                    {client.department && (
-                      <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1">
-                        🏢 Dept: <strong>{client.department}</strong>
-                      </p>
-                    )}
-                    {client.url && (
-                      <a
-                        href={client.url.startsWith('http') ? client.url : `https://${client.url}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[11px] font-mono text-blue-600 hover:underline flex items-center gap-1 mt-1 truncate"
-                      >
-                        <ExternalLink size={11} />
-                        <span className="truncate">{client.url}</span>
-                      </a>
-                    )}
-                  </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
+              {myAssignedClients.map(client => {
+                const cleanUrl = extractWebUrl(client.url || client.deploymentUrl || client.softwareUrl);
+                const isCritical = client.status === 'Critical' || client.status === 'Pending';
+                const isWarning = client.status === 'Warning' || client.status === 'Not Answering';
 
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-200/70 dark:border-slate-700/60">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedClientId(client.id);
-                        setCurrentModule(ModuleId.DAILY_WORK_LOG);
-                      }}
-                      className="flex-1 py-1.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold cursor-pointer"
-                    >
-                      {isUrdu ? 'ورک لاگ کھولیں' : 'Open Work Log'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedClientId(client.id);
-                        setCurrentModule(ModuleId.CLIENT_WORKSPACE);
-                      }}
-                      className="py-1.5 px-3 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-[11px] font-bold cursor-pointer"
-                    >
-                      {isUrdu ? 'ورک اسپیس' : 'Workspace'}
-                    </button>
+                return (
+                  <div
+                    key={client.id}
+                    className="p-3 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-500/70 hover:shadow-md transition-all flex flex-col justify-between gap-2 text-xs"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/80 truncate">
+                          {client.teId || client.id}
+                        </span>
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${
+                            isCritical
+                              ? 'bg-rose-500 ring-2 ring-rose-200'
+                              : isWarning
+                              ? 'bg-amber-500 ring-2 ring-amber-200'
+                              : 'bg-emerald-500 ring-2 ring-emerald-200'
+                          }`}
+                          title={client.status || 'Active'}
+                        />
+                      </div>
+                      <h4 className="font-extrabold text-[12px] text-slate-900 dark:text-white truncate" title={client.name}>
+                        {client.name}
+                      </h4>
+                      {client.department && (
+                        <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                          🏢 {client.department}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800">
+                      {cleanUrl && (
+                        <a
+                          href={cleanUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900 transition"
+                          title="Open Software"
+                        >
+                          <ExternalLink size={11} />
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedClientId(client.id);
+                          setCurrentModule(ModuleId.DAILY_WORK_LOG);
+                        }}
+                        className="flex-1 py-1 px-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold cursor-pointer transition"
+                      >
+                        {isUrdu ? 'لاگ' : 'Log'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedClientId(client.id);
+                          setCurrentModule(ModuleId.CLIENT_WORKSPACE);
+                        }}
+                        className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-pointer transition"
+                        title="Workspace"
+                      >
+                        <Briefcase size={12} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </MaterialCard>
@@ -705,30 +721,60 @@ export const UserManagementView: React.FC<{ id?: string }> = ({ id }) => {
                         {user.role}
                       </span>
                       <div className="text-[11px] font-mono text-slate-600 dark:text-slate-300 mt-1">
-                        💰 Base: <strong>₹{(user.baseSalary || 22000).toLocaleString()}</strong> | KPI: <strong>+₹{(user.monthlyIncentive || 2500).toLocaleString()}</strong>
+                        💰 Base: <strong>₹{(user.baseSalary || 20000).toLocaleString()}</strong> | KPI: <strong>+₹{(user.monthlyIncentive || 2000).toLocaleString()}</strong>
                       </div>
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block mt-0.5">
+                        ⭐ 80% Happy Clients: +₹2,000 Incentive
+                      </span>
                     </td>
 
-                    {/* Column 4: Assigned Clients Roster */}
+                    {/* Column 4: Assigned Clients Roster (Small Boxes Display) */}
                     <td className="py-3.5 px-4">
                       {userClients.length === 0 ? (
                         <button
                           type="button"
                           onClick={() => handleOpenEditModal(user)}
-                          className="text-[11px] text-blue-600 hover:underline font-semibold cursor-pointer"
+                          className="px-2.5 py-1 rounded-lg border border-dashed border-blue-400 text-[11px] text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950 font-bold transition cursor-pointer"
                         >
                           {isUrdu ? '+ کلائنٹس تفویض کریں' : '+ Assign Clients'}
                         </button>
                       ) : (
-                        <div className="flex flex-wrap gap-1 max-w-xs">
-                          {userClients.map(c => (
-                            <span
-                              key={c.id}
-                              className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold"
-                            >
-                              {c.name}
+                        <div className="space-y-1.5 max-w-[280px]">
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-mono font-bold text-[10px] flex items-center gap-1">
+                              <Building2 size={11} />
+                              {userClients.length} {isUrdu ? 'کلائنٹس' : 'Clients'}
                             </span>
-                          ))}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditModal(user)}
+                              className="p-1 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 text-slate-600 dark:text-slate-300 hover:text-blue-600 transition cursor-pointer"
+                              title="Edit Assigned Clients"
+                            >
+                              <Edit3 size={10} />
+                            </button>
+                          </div>
+                          {/* Compact Small Boxes Grid */}
+                          <div className="grid grid-cols-2 gap-1">
+                            {userClients.slice(0, 4).map(c => (
+                              <div
+                                key={c.id}
+                                className="px-1.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 text-[9px] font-bold truncate hover:border-blue-400 transition"
+                                title={`${c.name} (${c.teId || c.id})`}
+                              >
+                                <span className="block truncate">🔲 {c.name}</span>
+                              </div>
+                            ))}
+                          </div>
+                          {userClients.length > 4 && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditModal(user)}
+                              className="text-[9px] font-mono font-bold text-blue-600 hover:underline cursor-pointer block"
+                            >
+                              +{userClients.length - 4} {isUrdu ? 'مزید کلائنٹس...' : 'more clients...'}
+                            </button>
+                          )}
                         </div>
                       )}
                     </td>
@@ -1032,12 +1078,12 @@ export const UserManagementView: React.FC<{ id?: string }> = ({ id }) => {
 
                   <div>
                     <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      {isUrdu ? 'ماہانہ انعام (Monthly KPI Incentive ₹)' : 'Monthly KPI Incentive (₹)'}
+                      {isUrdu ? 'ماہانہ انعام (80% Happy کلائنٹس پر ₹2,000)' : 'Monthly KPI Incentive (₹2,000 for 80% Happy Clients)'}
                     </label>
                     <div className="flex items-center gap-2">
                       <input
                         type="number"
-                        value={formData.monthlyIncentive || 2500}
+                        value={formData.monthlyIncentive || 2000}
                         onChange={e => setFormData({ ...formData, monthlyIncentive: Number(e.target.value) })}
                         className="flex-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-mono"
                       />
@@ -1053,34 +1099,40 @@ export const UserManagementView: React.FC<{ id?: string }> = ({ id }) => {
                   </div>
                 </div>
 
-                {/* Assign Clients to this Executive (Req #15 & #16) */}
+                {/* Assign Clients to this Executive (Req #15 & #16 - Small Boxes View) */}
                 <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2">
-                  <label className="block font-bold text-slate-800 dark:text-slate-200">
-                    {isUrdu
-                      ? 'اس ایگزیکٹو کو کلائنٹس تفویض کریں (جس کے کلائنٹس ہوں گے صرف اسی کو نظر آئیں گے):'
-                      : 'Assign Clients to this Executive (Executive will strictly see only their assigned clients):'}
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-bold text-slate-800 dark:text-slate-200">
+                      {isUrdu
+                        ? 'اس ایگزیکٹو کے کلائنٹس منتخب کریں (Small Boxes):'
+                        : 'Select Assigned Clients (Small Boxes):'}
+                    </label>
+                    <span className="text-[10px] font-mono font-bold text-blue-600">
+                      {(formData.assignedClients || []).length} Selected
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-48 overflow-y-auto p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
                     {sourceAllClients.map(client => {
                       const isChecked = (formData.assignedClients || []).includes(client.id);
                       return (
                         <label
                           key={client.id}
-                          className={`p-2 rounded-xl border flex items-center gap-2 cursor-pointer transition ${
+                          className={`p-2 rounded-xl border flex items-center gap-2 cursor-pointer transition select-none ${
                             isChecked
-                              ? 'border-blue-500 bg-blue-500/10 text-blue-900 dark:text-blue-200 font-bold'
-                              : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                              ? 'border-blue-500 bg-blue-500/10 text-blue-900 dark:text-blue-200 font-bold shadow-2xs'
+                              : 'border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                           }`}
                         >
                           <input
                             type="checkbox"
                             checked={isChecked}
                             onChange={() => handleToggleAssignClient(client.id)}
+                            className="rounded text-blue-600 focus:ring-0 shrink-0"
                           />
                           <div className="min-w-0 flex-1">
-                            <span className="block truncate text-xs">{client.name}</span>
-                            <span className="block text-[10px] text-slate-400 font-mono">
-                              {client.teId || client.id} • Cur: {client.assignedExecutive}
+                            <span className="block truncate text-[11px] font-semibold">{client.name}</span>
+                            <span className="block text-[9px] text-slate-400 font-mono truncate">
+                              {client.teId || client.id}
                             </span>
                           </div>
                         </label>

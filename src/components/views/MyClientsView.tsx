@@ -24,9 +24,15 @@ import {
   Briefcase,
   AlertCircle,
   FileSpreadsheet,
-  User
+  User,
+  LayoutGrid,
+  LayoutList,
+  Layers,
+  ArrowUpRight
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { extractWebUrl } from '../../utils/helpers';
+import { openWhatsAppChat, buildBrandedWhatsAppMessage } from '../../utils/whatsappUtils';
 
 interface MyClientsViewProps {
   id?: string;
@@ -50,6 +56,7 @@ export const MyClientsView: React.FC<MyClientsViewProps> = ({ id }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [viewMode, setViewMode] = useState<'boxes' | 'table' | 'cards'>('boxes');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedLoginId, setCopiedLoginId] = useState<string | null>(null);
   const [copiedUrlId, setCopiedUrlId] = useState<string | null>(null);
@@ -205,9 +212,69 @@ export const MyClientsView: React.FC<MyClientsViewProps> = ({ id }) => {
             </select>
           </div>
         </div>
+
+        {/* View Mode Toggle: Small Boxes vs Table vs Detailed Cards */}
+        <div className="flex items-center justify-between flex-wrap gap-2 pt-4 border-t border-slate-100 dark:border-slate-800 mt-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
+              {isUrdu ? 'ڈسپلے اسٹائل:' : 'Display View:'}
+            </span>
+            <span className="text-xs font-mono font-black text-blue-600 dark:text-blue-400">
+              {viewMode === 'boxes'
+                ? (isUrdu ? '🔲 چھوٹے باکسز (Small Boxes - Recommended)' : '🔲 Small Boxes (Recommended)')
+                : viewMode === 'table'
+                ? (isUrdu ? '📋 ٹیبل لسٹ (Table List)' : '📋 Table List')
+                : (isUrdu ? '📄 تفصیلی کارڈز (Full Cards)' : '📄 Full Cards')}
+            </span>
+          </div>
+
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+            <button
+              type="button"
+              onClick={() => setViewMode('boxes')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'boxes'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-blue-600'
+              }`}
+              title="Small Compact Boxes"
+            >
+              <LayoutGrid size={14} />
+              <span>{isUrdu ? 'چھوٹے باکسز (Small Boxes)' : 'Small Boxes'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'table'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-blue-600'
+              }`}
+              title="Table View"
+            >
+              <LayoutList size={14} />
+              <span>{isUrdu ? 'ٹیبل (Table)' : 'Table'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                viewMode === 'cards'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-blue-600'
+              }`}
+              title="Detailed Cards"
+            >
+              <Layers size={14} />
+              <span>{isUrdu ? 'تفصیلی (Detailed)' : 'Detailed'}</span>
+            </button>
+          </div>
+        </div>
       </MaterialCard>
 
-      {/* Clients Cards Grid */}
+      {/* Main Clients Rendering */}
       {filteredClients.length === 0 ? (
         <MaterialCard variant="outlined" className="p-12 text-center rounded-3xl bg-white dark:bg-slate-900 space-y-3">
           <AlertCircle size={36} className="text-slate-400 mx-auto" />
@@ -220,10 +287,195 @@ export const MyClientsView: React.FC<MyClientsViewProps> = ({ id }) => {
               : 'No clients match your filter or search query. Check your assigned list.'}
           </p>
         </MaterialCard>
+      ) : viewMode === 'boxes' ? (
+        /* MODE 1: SMALL COMPACT BOXES (HIGH-DENSITY GRID) */
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          {filteredClients.map((client) => {
+            const cleanUrl = extractWebUrl(client.url || client.deploymentUrl || client.softwareUrl);
+            const rawPhone = String(client.clientContact || client.phone || '').replace(/\D/g, '');
+            const waNumber = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
+            const isCritical = client.status === 'Critical' || client.status === 'Pending';
+            const isWarning = client.status === 'Warning' || client.status === 'Not Answering';
+
+            return (
+              <div
+                key={client.id}
+                className="group relative p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 hover:border-blue-500/70 hover:shadow-md transition-all flex flex-col justify-between gap-2.5 text-xs"
+              >
+                {/* Top Row: TE-ID and Status Dot */}
+                <div className="flex items-center justify-between gap-1">
+                  <span className="font-mono font-bold text-[10px] px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/80 truncate">
+                    {client.teId || client.id}
+                  </span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        isCritical
+                          ? 'bg-rose-500 ring-2 ring-rose-200 dark:ring-rose-950'
+                          : isWarning
+                          ? 'bg-amber-500 ring-2 ring-amber-200 dark:ring-amber-950'
+                          : 'bg-emerald-500 ring-2 ring-emerald-200 dark:ring-emerald-950'
+                      }`}
+                      title={`Status: ${client.status || 'Active'}`}
+                    />
+                    <span className="text-[9px] font-bold text-slate-500 truncate max-w-[60px]">
+                      {client.status || 'Active'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Client Company & Name */}
+                <div className="min-w-0">
+                  <h4
+                    className="font-black text-[12px] text-slate-900 dark:text-white truncate leading-snug group-hover:text-blue-600 transition"
+                    title={client.company || client.name}
+                  >
+                    {client.company || client.name}
+                  </h4>
+                  {client.department && (
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 truncate block mt-0.5 font-medium">
+                      🏢 {client.department}
+                    </span>
+                  )}
+                </div>
+
+                {/* Quick Action Toolbar in Small Box */}
+                <div className="flex items-center gap-1 pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
+                  {cleanUrl && (
+                    <a
+                      href={cleanUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900 text-blue-600 dark:text-blue-400 transition cursor-pointer shrink-0"
+                      title={`Open Client Software: ${cleanUrl}`}
+                    >
+                      <ExternalLink size={12} />
+                    </a>
+                  )}
+
+                  {rawPhone && (
+                    <>
+                      <a
+                        href={`tel:${rawPhone}`}
+                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer shrink-0"
+                        title={`Call ${rawPhone}`}
+                      >
+                        <Phone size={12} />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          openWhatsAppChat({
+                            phone: waNumber,
+                            message: buildBrandedWhatsAppMessage({ client, type: 'quick_checkin' })
+                          });
+                        }}
+                        className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:hover:bg-emerald-900 text-emerald-600 dark:text-emerald-400 transition cursor-pointer shrink-0"
+                        title="Chat on WhatsApp"
+                      >
+                        <MessageCircle size={12} />
+                      </button>
+                    </>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpenWorkLog(client.id)}
+                    className="flex-1 py-1 px-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] flex items-center justify-center gap-1 shadow-2xs transition cursor-pointer"
+                    title="Start Daily Work Log"
+                  >
+                    <ClipboardPen size={11} />
+                    <span>{isUrdu ? 'لاگ' : 'Log'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpenWorkspace(client.id)}
+                    className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 dark:text-slate-300 transition cursor-pointer shrink-0"
+                    title="Open Workspace"
+                  >
+                    <Briefcase size={12} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : viewMode === 'table' ? (
+        /* MODE 2: TABLE VIEW */
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[10px] font-mono uppercase text-slate-500">
+                  <th className="py-3 px-4">TE-ID</th>
+                  <th className="py-3 px-4">Client Name</th>
+                  <th className="py-3 px-4">Department</th>
+                  <th className="py-3 px-4">Software URL</th>
+                  <th className="py-3 px-4">Phone</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredClients.map((client) => {
+                  const cleanUrl = extractWebUrl(client.url || client.deploymentUrl || client.softwareUrl);
+                  return (
+                    <tr key={client.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                      <td className="py-2.5 px-4 font-mono font-bold text-blue-600">{client.teId || client.id}</td>
+                      <td className="py-2.5 px-4 font-bold text-slate-900 dark:text-white">{client.company || client.name}</td>
+                      <td className="py-2.5 px-4 text-slate-500">{client.department || '—'}</td>
+                      <td className="py-2.5 px-4">
+                        {cleanUrl ? (
+                          <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-blue-600 hover:underline flex items-center gap-1">
+                            <span className="truncate max-w-[150px]">{cleanUrl}</span>
+                            <ExternalLink size={10} />
+                          </a>
+                        ) : (
+                          <span className="text-slate-400 italic">—</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-4 font-mono">{client.clientContact || client.phone || '—'}</td>
+                      <td className="py-2.5 px-4">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          client.status === 'Critical' ? 'bg-rose-100 text-rose-700' :
+                          client.status === 'Warning' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                        }`}>
+                          {client.status || 'Active'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-4 text-right">
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenWorkLog(client.id)}
+                            className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] flex items-center gap-1 cursor-pointer"
+                          >
+                            <ClipboardPen size={11} />
+                            <span>{isUrdu ? 'لاگ' : 'Log'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenWorkspace(client.id)}
+                            className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 cursor-pointer"
+                            title="Workspace"
+                          >
+                            <Briefcase size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
+        /* MODE 3: FULL DETAILED CARDS */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredClients.map((client) => {
-            const cleanUrl = formatCleanUrl(client.url || client.deploymentUrl);
+            const cleanUrl = extractWebUrl(client.url || client.deploymentUrl || client.softwareUrl);
             const rawPhone = String(client.clientContact || client.phone || '').replace(/\D/g, '');
             const waNumber = rawPhone.length === 10 ? `91${rawPhone}` : rawPhone;
 
@@ -235,23 +487,11 @@ export const MyClientsView: React.FC<MyClientsViewProps> = ({ id }) => {
                 transition={{ duration: 0.2 }}
                 className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-4"
               >
-                {/* Header: TE ID & Status */}
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-mono font-black px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                        {client.teId || client.id}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyTeId(client.teId || client.id, client.id)}
-                        className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition cursor-pointer"
-                        title="Copy TE-ID"
-                      >
-                        {copiedId === client.id ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
-                      </button>
-                    </div>
-
+                    <span className="text-[11px] font-mono font-black px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                      {client.teId || client.id}
+                    </span>
                     <span
                       className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
                         client.status === 'Active' || client.status === 'Connected'
@@ -265,172 +505,43 @@ export const MyClientsView: React.FC<MyClientsViewProps> = ({ id }) => {
                     </span>
                   </div>
 
-                  {/* Client Name */}
                   <h3 className="text-sm font-black text-slate-900 dark:text-white leading-snug">
-                    {client.name}
+                    {client.company || client.name}
                   </h3>
 
-                  {/* Department & Plan */}
-                  <div className="flex items-center gap-2 mt-1.5 flex-wrap text-[11px] text-slate-500 dark:text-slate-400">
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap text-[11px] text-slate-500">
                     {client.department && (
                       <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-bold text-slate-700 dark:text-slate-300">
                         🏢 {client.department}
                       </span>
                     )}
-                    {client.plan && (
-                      <span className="px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/50 font-bold text-purple-700 dark:text-purple-300">
-                        📦 {client.plan}
-                      </span>
-                    )}
-                    {client.assignedSupport && (
-                      <span className="text-[10px] font-mono text-slate-400">
-                        👤 {client.assignedSupport}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Contacts */}
-                  <div className="space-y-1 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
-                    {(client.clientContact || client.phone) && (
-                      <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
-                        <span className="text-[11px] text-slate-400">📞 Phone:</span>
-                        <div className="flex items-center gap-2 font-mono font-bold">
-                          <a href={`tel:${client.clientContact || client.phone}`} className="hover:text-blue-600 hover:underline">
-                            {client.clientContact || client.phone}
-                          </a>
-                        </div>
-                      </div>
-                    )}
-
-                    {client.operatorContact && (
-                      <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
-                        <span className="text-[11px] text-slate-400">👤 Operator:</span>
-                        <a href={`tel:${client.operatorContact}`} className="font-mono text-[11px] hover:text-blue-600 hover:underline">
-                          {client.operatorContact}
-                        </a>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* SPECIAL MANAGER REMARK (Requirement #3) */}
-                  {(client.noteSaad || (client as any).specialManagerRemark) && (
-                    <div className="mt-2.5 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200">
-                      <span className="text-[10px] font-bold uppercase tracking-wider block text-amber-700 dark:text-amber-400">
-                        📌 {isUrdu ? 'خصوصی مینیجر ریمارک (Special Manager Remark)' : 'Special Manager Remark:'}
-                      </span>
-                      <p className="text-[11px] font-medium mt-0.5 leading-snug">
-                        {client.noteSaad || (client as any).specialManagerRemark}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* CLIENT SOFTWARE LOGIN (Column P) */}
-                  {(client.softwareLogin || (client.email && !client.email.includes('@technoevident.com'))) && (
-                    <div className="mt-2.5 p-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <User size={12} className="text-blue-500 shrink-0" />
-                        <span className="text-[10px] text-slate-400 font-bold uppercase">{isUrdu ? 'لاگ ان:' : 'Login:'}</span>
-                        <span className="font-mono font-bold text-slate-800 dark:text-slate-200 truncate text-[11px]">
-                          {client.softwareLogin || client.email}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyLogin(client.softwareLogin || client.email, client.id)}
-                        className="p-1 text-slate-400 hover:text-blue-600 transition shrink-0 cursor-pointer"
-                        title="Copy Login"
-                      >
-                        {copiedLoginId === client.id ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* CLIENT SOFTWARE / PORTAL URL (Column O) */}
-                  <div className="mt-2.5">
-                    {cleanUrl ? (
-                      <div className="flex items-center gap-1.5">
-                        <a
-                          href={cleanUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs flex items-center justify-between gap-1.5 shadow-sm transition active:scale-95"
-                          title="Click to Open Client Software Portal"
-                        >
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <Globe size={13} className="shrink-0" />
-                            <span className="truncate font-mono">{cleanUrl}</span>
-                          </div>
-                          <ExternalLink size={12} className="shrink-0" />
-                        </a>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyUrl(cleanUrl, client.id)}
-                          className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition shrink-0 cursor-pointer"
-                          title="Copy Software URL"
-                        >
-                          {copiedUrlId === client.id ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 text-center text-[11px] font-mono flex items-center justify-between gap-2">
-                        <span>🌐 {isUrdu ? 'کالم O یو آر ایل پینڈنگ ہے' : 'Column O URL Pending'}</span>
-                        <button
-                          type="button"
-                          onClick={openSheetSyncModal}
-                          className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-sans text-[10px] font-bold cursor-pointer"
-                        >
-                          {isUrdu ? 'سنک کریں' : 'Sync'}
-                        </button>
-                      </div>
+                    {cleanUrl && (
+                      <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1 font-mono">
+                        <Globe size={11} />
+                        <span className="truncate max-w-[150px]">{cleanUrl}</span>
+                      </a>
                     )}
                   </div>
                 </div>
 
-                {/* Action Toolbar */}
-                <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <div className="grid grid-cols-2 gap-2">
-                    {waNumber && (
-                      <a
-                        href={`https://wa.me/${waNumber}?text=Hello%20${encodeURIComponent(client.name)}%2C%20this%20is%20${encodeURIComponent(currentUser?.name || 'Techno Evident Support')}%20from%20TEDOS%20Support.`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="py-1.5 px-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5 transition"
-                      >
-                        <MessageCircle size={13} />
-                        <span>WhatsApp</span>
-                      </a>
-                    )}
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenWorkLog(client.id)}
+                    className="flex-1 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer"
+                  >
+                    <ClipboardPen size={13} />
+                    <span>{isUrdu ? 'ورک لاگ درج کریں' : 'Start Daily Work Log'}</span>
+                  </button>
 
-                    <a
-                      href={client.googleMapLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.name)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="py-1.5 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 transition"
-                    >
-                      <MapPin size={13} />
-                      <span>{isUrdu ? 'نقشہ (Maps)' : 'Google Map'}</span>
-                    </a>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenWorkLog(client.id)}
-                      className="flex-1 py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition active:scale-95 cursor-pointer"
-                    >
-                      <ClipboardPen size={13} />
-                      <span>{isUrdu ? 'ورک لاگ درج کریں' : 'Start Daily Work Log'}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleOpenWorkspace(client.id)}
-                      className="py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs cursor-pointer"
-                      title="Open Full Client Workspace"
-                    >
-                      <Briefcase size={13} />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenWorkspace(client.id)}
+                    className="py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 font-bold text-xs cursor-pointer"
+                    title="Open Full Workspace"
+                  >
+                    <Briefcase size={13} />
+                  </button>
                 </div>
               </motion.div>
             );

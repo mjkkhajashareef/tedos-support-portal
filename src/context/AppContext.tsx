@@ -216,7 +216,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
   
-  const [tickets, setTickets] = useState<Ticket[]>([]); // Initialize empty
+  const [tickets, setTickets] = useState<Ticket[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('tedos_tickets_v4');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.SUPPORT_EXECUTIVE);
   const [currentModule, _setCurrentModule] = useState<ModuleId>(ModuleId.LOGIN);
   const [isBlankWorkspace, setIsBlankWorkspace] = useState<boolean>(false);
@@ -307,8 +318,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return [];
   });
-  const [workLogs, setWorkLogs] = useState<WorkLogEntry[]>([]);
-  const [followUps, setFollowUps] = useState<FollowUpTracker[]>([]);
+  const [workLogs, setWorkLogs] = useState<WorkLogEntry[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('tedos_worklogs_v4');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
+  const [followUps, setFollowUps] = useState<FollowUpTracker[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('tedos_followups_v4');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
   const [overServices, setOverServices] = useState<OverServiceEntry[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -891,7 +924,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const storedTickets = await offlineDb.getTickets();
         if (storedTickets && storedTickets.length > 0) {
           const clean = storedTickets.filter(t => !/zigma|apollo/i.test(t.clientName || ''));
-          setTickets(clean);
+          setTickets(prev => {
+            const map = new Map<string, Ticket>();
+            [...storedTickets, ...prev].forEach(t => map.set(t.id, t));
+            return Array.from(map.values());
+          });
         }
         const storedLogs = await offlineDb.getWorkLogs();
         if (storedLogs && storedLogs.length > 0) {
@@ -899,6 +936,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setWorkLogs(prev => {
             const map = new Map<string, WorkLogEntry>();
             [...cleanLogs, ...prev].forEach(item => map.set(item.id, item));
+            return Array.from(map.values());
+          });
+        }
+        const storedFollowUps = await offlineDb.getFollowUps();
+        if (storedFollowUps && storedFollowUps.length > 0) {
+          const cleanF = storedFollowUps.filter(f => !/zigma|apollo/i.test(f.clientName || ''));
+          setFollowUps(prev => {
+            const map = new Map<string, FollowUpTracker>();
+            [...cleanF, ...prev].forEach(item => map.set(item.id, item));
             return Array.from(map.values());
           });
         }
@@ -940,6 +986,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const interval = setInterval(pollServerLogs, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // Keep localStorage continuously synced so offline drops or page reloads never lose any records
+  useEffect(() => {
+    if (workLogs.length > 0) {
+      try { localStorage.setItem('tedos_worklogs_v4', JSON.stringify(workLogs)); } catch {}
+    }
+  }, [workLogs]);
+
+  useEffect(() => {
+    if (followUps.length > 0) {
+      try { localStorage.setItem('tedos_followups_v4', JSON.stringify(followUps)); } catch {}
+    }
+  }, [followUps]);
+
+  useEffect(() => {
+    if (tickets.length > 0) {
+      try { localStorage.setItem('tedos_tickets_v4', JSON.stringify(tickets)); } catch {}
+    }
+  }, [tickets]);
 
   const checkAndPromptPendingProofs = () => {
     setTimeout(() => {
@@ -2068,7 +2133,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     options?: { skipGasSync?: boolean }
   ) => {
     const todayStr = new Date().toISOString().split('T')[0];
-    const executiveName = followUp.executiveName || currentUser?.name || 'Asad';
+    const executiveName = followUp.executiveName || currentUser?.name || 'Support Executive';
     const matchedClient = clients.find(c => c.id === followUp.clientId || c.name === followUp.clientName);
     const teId = followUp.teId || matchedClient?.teId || matchedClient?.id || 'TE-101';
     const newFollowUpId = followUp.id || `f-${Date.now()}`;
@@ -2096,7 +2161,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const filtered = prev.filter(
         f => !(f.clientId === newFollowUp.clientId && f.scheduledDate === newFollowUp.scheduledDate && f.reason === newFollowUp.reason)
       );
-      return [newFollowUp, ...filtered];
+      const nextList = [newFollowUp, ...filtered];
+      try { localStorage.setItem('tedos_followups_v4', JSON.stringify(nextList)); } catch {}
+      return nextList;
     });
     offlineDb.saveFollowUp(newFollowUp).catch(() => {});
 
@@ -2109,21 +2176,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           date: todayStr,
           supportName: executiveName,
           issueCategory: 'Follow-up',
-        teId,
-        clientName: followUp.clientName,
-        workType: 'Follow-up Scheduled',
-        status: newFollowUp.status,
-        summary: followUp.reason,
-        startTime: newFollowUp.scheduledTime,
-        endTime: newFollowUp.scheduledTime,
-        duration: '00:15:00',
-        nextFollowUpDate: newFollowUp.scheduledDate,
-        'Next Follow-up Date': newFollowUp.scheduledDate,
-        followUpDate: newFollowUp.scheduledDate,
-        remarksClient: followUp.remarks || ''
-      },
-      CONFIG.apiEndpoint
-    ).catch(e => console.warn('[AppContext] Ultimate Sheet follow-up sync warning:', e));
+          teId,
+          clientName: followUp.clientName,
+          workType: 'Follow-up Scheduled',
+          status: newFollowUp.status,
+          summary: followUp.reason,
+          startTime: newFollowUp.scheduledTime,
+          endTime: newFollowUp.scheduledTime,
+          duration: '00:15:00',
+          nextFollowUpDate: newFollowUp.scheduledDate,
+          'Next Follow-up Date': newFollowUp.scheduledDate,
+          followUpDate: newFollowUp.scheduledDate,
+          remarksClient: followUp.remarks || ''
+        },
+        CONFIG.apiEndpoint
+      ).catch(e => console.warn('[AppContext] Ultimate Sheet follow-up sync warning:', e));
     }
 
     const activeTicket =
@@ -2150,22 +2217,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateFollowUp = (id: string, updates: Partial<FollowUpTracker>) => {
-    setFollowUps(prev =>
-      prev.map(f => {
+    setFollowUps(prev => {
+      const next = prev.map(f => {
         if (f.id === id) {
           const updated = { ...f, ...updates };
           offlineDb.saveFollowUp(updated).catch(() => {});
           return updated;
         }
         return f;
-      })
-    );
+      });
+      try { localStorage.setItem('tedos_followups_v4', JSON.stringify(next)); } catch {}
+      return next;
+    });
 
     setTickets(prev =>
       prev.map(t => {
-        const hasFollowUp = t.followUps.some(f => f.id === id);
+        const hasFollowUp = (t.followUps || []).some(f => f.id === id);
         if (hasFollowUp) {
-          const updatedFollowUps = t.followUps.map(f => (f.id === id ? { ...f, ...updates } : f));
+          const updatedFollowUps = (t.followUps || []).map(f => (f.id === id ? { ...f, ...updates } : f));
           const updatedTicket = {
             ...t,
             followUps: updatedFollowUps,

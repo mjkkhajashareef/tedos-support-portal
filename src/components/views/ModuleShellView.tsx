@@ -41,6 +41,7 @@ export const ModuleShellView: React.FC<ModuleShellViewProps> = ({ id }) => {
     markNotificationAsRead,
     clients,
     workLogs,
+    addWorkLog,
     users,
     currentUser,
     language
@@ -75,7 +76,18 @@ export const ModuleShellView: React.FC<ModuleShellViewProps> = ({ id }) => {
   const [trainingClientId, setTrainingClientId] = useState(clients[0]?.id || '');
   const [trainingSessions, setTrainingSessions] = useState<
     Array<{ id: string; clientName: string; topic: string; trainer: string; status: string; duration: string }>
-  >([]);
+  >(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('tedos_training_sessions_v4');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
 
   // Load Interakt config on mount
   React.useEffect(() => {
@@ -162,7 +174,7 @@ export const ModuleShellView: React.FC<ModuleShellViewProps> = ({ id }) => {
         clientName: activeWaClient.name,
         phone: activeWaClient.phone,
         msg: waMessage,
-        exec: currentUser?.name || 'Asad',
+        exec: currentUser?.name || 'Executive',
         time: 'Just now',
         channel: 'WhatsApp Web'
       },
@@ -174,17 +186,31 @@ export const ModuleShellView: React.FC<ModuleShellViewProps> = ({ id }) => {
     e.preventDefault();
     if (!trainingTopic.trim()) return;
     const targetClient = clients.find(c => c.id === trainingClientId) || clients[0];
-    setTrainingSessions(prev => [
-      {
-        id: `tr-${Date.now()}`,
-        clientName: targetClient?.name || 'Assigned Client',
-        topic: trainingTopic.trim(),
-        trainer: currentUser?.name || 'Asad',
-        status: 'Completed',
-        duration: '30 Mins'
-      },
-      ...prev
-    ]);
+    const newSession = {
+      id: `tr-${Date.now()}`,
+      clientName: targetClient?.name || 'Assigned Client',
+      topic: trainingTopic.trim(),
+      trainer: currentUser?.name || 'Support Executive',
+      status: 'Completed',
+      duration: '30 Mins'
+    };
+
+    setTrainingSessions(prev => {
+      const next = [newSession, ...prev];
+      try { localStorage.setItem('tedos_training_sessions_v4', JSON.stringify(next)); } catch {}
+      return next;
+    });
+
+    // Also persist as Work Log so it immediately appears in Work Logs & history
+    addWorkLog({
+      clientId: targetClient?.id || 'cl-training',
+      clientName: targetClient?.name || 'Client',
+      category: "Training Sessions'",
+      details: `Staff Training Session: ${trainingTopic.trim()}`,
+      durationMinutes: 30,
+      status: 'Completed'
+    });
+
     setTrainingTopic('');
   };
 

@@ -22,7 +22,7 @@ const DEFAULT_USERS_DATA = [
     id: "usr-director-philsof",
     employeeId: "DIR-001",
     name: "Techno Admin",
-    email: "support@philsof.com",
+    email: "azhaer@philsof.com",
     mobile: "9394419813",
     role: "Director",
     department: "Executive Leadership",
@@ -33,8 +33,8 @@ const DEFAULT_USERS_DATA = [
     status: "Active",
     joiningDate: "2023-01-01",
     active: true,
-    password: "Technolove@22",
-    aliases: ["support@philsof.com", "admin@philsof.com", "director@technoevident.com"],
+    password: "Technolive@22",
+    aliases: ["azhaer@philsof.com", "support@philsof.com", "admin@philsof.com", "director@technoevident.com", "techno admin"],
     baseSalary: 120000,
     monthlyIncentive: 15000
   },
@@ -42,7 +42,7 @@ const DEFAULT_USERS_DATA = [
     id: "usr-coo-shareef",
     employeeId: "COO-001",
     name: "Khaja Shareef",
-    email: "coo@technoevident.com",
+    email: "coo@philsof.com",
     mobile: "9160633333",
     role: "COO",
     department: "Operations & Auditing",
@@ -53,113 +53,17 @@ const DEFAULT_USERS_DATA = [
     status: "Active",
     joiningDate: "2023-02-01",
     active: true,
-    password: "Technolove@22",
-    aliases: ["coo@technoevident.com", "coo@philsof.com"],
-    baseSalary: 95000,
-    monthlyIncentive: 12000
-  },
-  {
-    id: "usr-sup-asad",
-    employeeId: "TE-SUP-101",
-    name: "Asad",
-    email: "asad@technoevident.com",
-    mobile: "9100000101",
-    role: "Support Executive",
-    department: "Customer Support",
-    reportingManager: "Khaja Shareef (COO)",
-    assignedRegion: "All India",
-    assignedClients: [],
-    designation: "Support Executive",
-    status: "Active",
-    joiningDate: "2023-01-15",
-    active: true,
-    password: "asad@22",
-    aliases: ["asad@technoevident.com", "asad@philsof.com", "te-sup-101", "tesup101", "asad"],
+    password: "Technolive@22",
+    aliases: ["coo@philsof.com", "coo@technoevident.com", "khaja shareef", "shareef"],
     baseSalary: 25000,
-    monthlyIncentive: 3500
-  },
-  {
-    id: "usr-sup-umar",
-    employeeId: "TE-SUP-110",
-    name: "Umar Farooq",
-    email: "umarfarooq913344@gmail.com",
-    mobile: "9133440001",
-    role: "Support Executive",
-    department: "Customer Support",
-    reportingManager: "Mohammed Khaja Shareef (COO)",
-    assignedRegion: "All India",
-    assignedClients: [],
-    designation: "Senior Support Executive",
-    status: "Active",
-    joiningDate: "2023-04-01",
-    active: true,
-    password: "umar@22",
-    baseSalary: 25000,
-    monthlyIncentive: 3500
-  },
-  {
-    id: "usr-sup-farman",
-    employeeId: "TE-SUP-111",
-    name: "Farman",
-    email: "farmanshamszain@gmail.com",
-    mobile: "9800000111",
-    role: "Support Executive",
-    department: "Customer Support",
-    reportingManager: "Khaja Shareef (COO)",
-    assignedRegion: "All India",
-    assignedClients: [],
-    designation: "Support Executive",
-    status: "Active",
-    joiningDate: "2023-05-01",
-    active: true,
-    password: "farman@22",
-    baseSalary: 22000,
-    monthlyIncentive: 3000
-  },
-  {
-    id: "usr-sup-haneef",
-    employeeId: "TE-SUP-112",
-    name: "Haneef",
-    email: "hameemohdamz@gmail.com",
-    mobile: "9800000112",
-    role: "Support Executive",
-    department: "Customer Support",
-    reportingManager: "Khaja Shareef (COO)",
-    assignedRegion: "All India",
-    assignedClients: [],
-    designation: "Support Executive",
-    status: "Active",
-    joiningDate: "2023-06-01",
-    active: true,
-    password: "haneef@22",
-    baseSalary: 22000,
-    monthlyIncentive: 3000
-  },
-  {
-    id: "usr-sup-sumayya",
-    employeeId: "TE-SUP-113",
-    name: "Sumayya",
-    email: "boghdadiabdullah607@gmail.com",
-    mobile: "9800000113",
-    role: "Support Executive",
-    department: "Customer Support",
-    reportingManager: "Khaja Shareef (COO)",
-    assignedRegion: "All India",
-    assignedClients: [],
-    designation: "Support Executive",
-    status: "Active",
-    joiningDate: "2023-07-01",
-    active: true,
-    password: "sumayya@22",
-    baseSalary: 22000,
-    monthlyIncentive: 3000
+    monthlyIncentive: 2000
   },
   {
     id: "usr-mgr-support",
-    employeeId: "MGR-001",
+    employeeId: "MGR-003",
     name: "Syed (Support Manager)",
-    email: "manager@technoevident.com",
-    mobile: "9100000003",
+    email: "manager@philsof.com",
+    mobile: "9063807153",
     role: "Support Manager",
     department: "Customer Support",
     reportingManager: "Khaja Shareef (COO)",
@@ -170,13 +74,13 @@ const DEFAULT_USERS_DATA = [
     joiningDate: "2023-03-01",
     active: true,
     password: "manager@22",
-    aliases: ["manager@technoevident.com", "supportmanager@technoevident.com", "sm@philsof.com", "supportmanager@philsof.com"],
-    baseSalary: 45000,
-    monthlyIncentive: 8000
+    aliases: ["manager@philsof.com", "manager@technoevident.com", "supportmanager@technoevident.com", "sm@philsof.com", "mgr-003", "mgr-001", "syed"],
+    baseSalary: 15000,
+    monthlyIncentive: 2000
   },
   {
     id: "usr-mgr-operation",
-    employeeId: "OPM-001",
+    employeeId: "OPM-002",
     name: "Operation Manager",
     email: "om@philsof.com",
     mobile: "9100000004",
@@ -190,9 +94,89 @@ const DEFAULT_USERS_DATA = [
     joiningDate: "2023-03-01",
     active: true,
     password: "operation@22",
-    aliases: ["om@philsof.com", "operationmanager@technoevident.com", "operation@technoevident.com", "om@technoevident.com"],
-    baseSalary: 55000,
-    monthlyIncentive: 10000
+    aliases: ["om@philsof.com", "operationmanager@technoevident.com", "operation@technoevident.com", "om@technoevident.com", "opm-002", "opm-001"],
+    baseSalary: 25000,
+    monthlyIncentive: 2000
+  },
+  {
+    id: "usr-sup-umar",
+    employeeId: "TE-SUP-0020",
+    name: "Umar Farooq",
+    email: "umarfarooq.adb@gmail.com",
+    mobile: "9949540619",
+    role: "Support Executive",
+    department: "Customer Support",
+    reportingManager: "Mohammed Khaja Shareef (COO)",
+    assignedRegion: "All India",
+    assignedClients: [],
+    designation: "Senior Support Executive",
+    status: "Active",
+    joiningDate: "2023-04-01",
+    active: true,
+    password: "umar@22",
+    aliases: ["umarfarooq.adb@gmail.com", "umarfarooq,adb@gmail.com", "umarfarooq913344@gmail.com", "te-sup-0020", "te-sup-110", "tesup0020", "umar"],
+    baseSalary: 15000,
+    monthlyIncentive: 2000
+  },
+  {
+    id: "usr-sup-farman",
+    employeeId: "TE-SUP-0016",
+    name: "Farman",
+    email: "farmanshamszain@gmail.com",
+    mobile: "9063274241",
+    role: "Support Executive",
+    department: "Customer Support",
+    reportingManager: "Khaja Shareef (COO)",
+    assignedRegion: "All India",
+    assignedClients: [],
+    designation: "Support Executive",
+    status: "Active",
+    joiningDate: "2023-05-01",
+    active: true,
+    password: "farman@22",
+    aliases: ["farmanshamszain@gmail.com", "te-sup-0016", "te-sup-111", "tesup0016", "farman"],
+    baseSalary: 15000,
+    monthlyIncentive: 2000
+  },
+  {
+    id: "usr-sup-haneef",
+    employeeId: "TE-SUP-0017",
+    name: "Haneef",
+    email: "haneefmohdamz@gmail.com",
+    mobile: "9800000112",
+    role: "Support Executive",
+    department: "Customer Support",
+    reportingManager: "Khaja Shareef (COO)",
+    assignedRegion: "All India",
+    assignedClients: [],
+    designation: "Support Executive",
+    status: "Active",
+    joiningDate: "2023-06-01",
+    active: true,
+    password: "haneef@22",
+    aliases: ["haneefmohdamz@gmail.com", "hameemohdamz@gmail.com", "te-sup-0017", "te-sup-112", "tesup0017", "haneef"],
+    baseSalary: 13000,
+    monthlyIncentive: 2000
+  },
+  {
+    id: "usr-sup-sumayya",
+    employeeId: "TE-SUP-0021",
+    name: "Sumayya",
+    email: "boghdadiabdullah607@gmail.com",
+    mobile: "9063269242",
+    role: "Support Executive",
+    department: "Customer Support",
+    reportingManager: "Khaja Shareef (COO)",
+    assignedRegion: "All India",
+    assignedClients: [],
+    designation: "Support Executive",
+    status: "Active",
+    joiningDate: "2023-07-01",
+    active: true,
+    password: "sumayya@22",
+    aliases: ["boghdadiabdullah607@gmail.com", "te-sup-0021", "te-sup-113", "tesup0021", "sumayya"],
+    baseSalary: 10000,
+    monthlyIncentive: 2000
   }
 ];
 
@@ -538,20 +522,25 @@ async function startServer() {
         writeJsonFile(USERS_FILE, currentUsers);
       }
 
+      const cleanIdNormalized = cleanId.replace(/,/g, ".");
       const PINNED_PASSWORDS: Record<string, string> = {
-        "support@philsof.com": "Technolove@22",
-        "admin@philsof.com": "Technolove@22",
-        "coo@technoevident.com": "Technolove@22",
+        "azhaer@philsof.com": "Technolive@22",
+        "support@philsof.com": "Technolive@22",
+        "admin@philsof.com": "Technolive@22",
+        "coo@philsof.com": "Technolive@22",
+        "coo@technoevident.com": "Technolive@22",
+        "manager@philsof.com": "manager@22",
         "manager@technoevident.com": "manager@22",
         "supportmanager@technoevident.com": "manager@22",
         "sm@philsof.com": "manager@22",
         "om@philsof.com": "operation@22",
         "operationmanager@technoevident.com": "operation@22",
         "operation@technoevident.com": "operation@22",
-        "asad@technoevident.com": "asad@22",
-        "asad@philsof.com": "asad@22",
+        "umarfarooq.adb@gmail.com": "umar@22",
+        "umarfarooq,adb@gmail.com": "umar@22",
         "umarfarooq913344@gmail.com": "umar@22",
         "farmanshamszain@gmail.com": "farman@22",
+        "haneefmohdamz@gmail.com": "haneef@22",
         "hameemohdamz@gmail.com": "haneef@22",
         "boghdadiabdullah607@gmail.com": "sumayya@22"
       };
@@ -568,9 +557,15 @@ async function startServer() {
         const aliases: string[] = Array.isArray(u.aliases) ? u.aliases.map((a: string) => String(a).trim().toLowerCase()) : [];
 
         // Exact email, exact employee ID, or aliases match
-        if (uEmail === cleanId || uEmpId === cleanId || aliases.includes(cleanId)) return true;
+        if (
+          uEmail === cleanId ||
+          uEmail === cleanIdNormalized ||
+          uEmpId === cleanId ||
+          aliases.includes(cleanId) ||
+          aliases.includes(cleanIdNormalized)
+        ) return true;
 
-        // Clean alphanumeric ID match (e.g., "tesup110" matches "TE-SUP-110", "opm001" matches "OPM-001")
+        // Clean alphanumeric ID match (e.g., "tesup0020" matches "TE-SUP-0020", "dir001" matches "DIR-001")
         if (cleanIdAlphanum && uEmpIdClean && cleanIdAlphanum === uEmpIdClean) return true;
         if (cleanIdAlphanum && aliases.some(a => a.replace(/[^a-z0-9]/gi, "") === cleanIdAlphanum)) return true;
 
@@ -582,21 +577,21 @@ async function startServer() {
 
         if (
           (cleanId === "om@philsof.com" || cleanId === "om@technoevident.com" || cleanId === "operation" || cleanId === "operation manager" || cleanId === "om") &&
-          (u.role === "Operation Manager" || uEmpId === "opm-001" || u.id === "usr-mgr-operation")
+          (u.role === "Operation Manager" || uEmpId === "opm-002" || uEmpId === "opm-001" || u.id === "usr-mgr-operation")
         ) return true;
 
         if (
-          (cleanId === "sm@philsof.com" || cleanId === "manager" || cleanId === "support manager" || cleanId === "sm") &&
-          (u.role === "Support Manager" || uEmpId === "mgr-001" || u.id === "usr-mgr-support")
+          (cleanId === "sm@philsof.com" || cleanId === "manager@philsof.com" || cleanId === "manager" || cleanId === "support manager" || cleanId === "sm") &&
+          (u.role === "Support Manager" || uEmpId === "mgr-003" || uEmpId === "mgr-001" || u.id === "usr-mgr-support")
         ) return true;
 
         if (
-          (cleanId === "director" || cleanId === "admin" || cleanId === "support@philsof.com" || cleanId === "admin@philsof.com") &&
+          (cleanId === "director" || cleanId === "admin" || cleanId === "azhaer@philsof.com" || cleanId === "support@philsof.com" || cleanId === "admin@philsof.com") &&
           (u.role === "Director" || uEmpId === "dir-001" || u.id === "usr-director-philsof")
         ) return true;
 
         if (
-          (cleanId === "coo" || cleanId === "shareef" || cleanId === "coo@technoevident.com" || cleanId === "coo@philsof.com") &&
+          (cleanId === "coo" || cleanId === "shareef" || cleanId === "coo@philsof.com" || cleanId === "coo@technoevident.com") &&
           (u.role === "COO" || uEmpId === "coo-001" || u.id === "usr-coo-shareef")
         ) return true;
 
@@ -624,15 +619,17 @@ async function startServer() {
       }
 
       const uEmail = (matchedUser.email || "").toLowerCase();
-      const expectedPinned = PINNED_PASSWORDS[uEmail] || PINNED_PASSWORDS[cleanId];
+      const expectedPinned = PINNED_PASSWORDS[uEmail] || PINNED_PASSWORDS[cleanId] || PINNED_PASSWORDS[cleanIdNormalized];
       const userPassword = (matchedUser.password || "").trim();
       const matchesDirect = userPassword === cleanPass || userPassword.toLowerCase() === cleanPass.toLowerCase();
       const matchesPinned = Boolean(expectedPinned && (cleanPass === expectedPinned || cleanPass.toLowerCase() === expectedPinned.toLowerCase()));
-      const matchesStandard = cleanPass === "Technolove@22" || cleanPass === "Admin@123" || cleanPass === "admin123";
+      const matchesStandard = cleanPass === "Technolive@22" || cleanPass === "Technolove@22" || cleanPass === "Admin@123" || cleanPass === "admin123";
       const matchesRole =
-        (matchedUser.role === "Support Manager" && cleanPass === "manager@22") ||
-        (matchedUser.role === "Operation Manager" && cleanPass === "operation@22") ||
-        (matchedUser.role === "Support Executive" && (cleanPass === "asad@22" || cleanPass === "umar@22" || cleanPass === "farman@22" || cleanPass === "haneef@22" || cleanPass === "sumayya@22"));
+        (matchedUser.role === "Director" && (cleanPass === "Technolive@22" || cleanPass === "Technolove@22")) ||
+        (matchedUser.role === "COO" && (cleanPass === "Technolive@22" || cleanPass === "Technolove@22")) ||
+        (matchedUser.role === "Support Manager" && (cleanPass === "manager@22" || cleanPass === "Technolive@22")) ||
+        (matchedUser.role === "Operation Manager" && (cleanPass === "operation@22" || cleanPass === "Technolive@22")) ||
+        (matchedUser.role === "Support Executive" && (cleanPass === "umar@22" || cleanPass === "farman@22" || cleanPass === "haneef@22" || cleanPass === "sumayya@22"));
 
       if (!matchesDirect && !matchesPinned && !matchesStandard && !matchesRole) {
         return res.status(401).json({
