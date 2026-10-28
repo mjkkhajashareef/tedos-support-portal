@@ -136,6 +136,7 @@ export const DailyWorkLogView: React.FC<DailyWorkLogViewProps> = ({ id }) => {
   // Additional Submission & Status States
   const [logDate, setLogDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const isSubmittingRef = useRef<boolean>(false);
   const [showSuccessAlert, setShowSuccessAlert] = useState<boolean>(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
@@ -349,6 +350,8 @@ Format as clean professional executive summary text without bullet points or pre
 
   // Reset form cleanly for Next Client
   const handleResetForNextClient = () => {
+    isSubmittingRef.current = false;
+    setIsSubmitting(false);
     if (isTimerRunning) {
       setIsTimerRunning(false);
     }
@@ -372,9 +375,13 @@ Format as clean professional executive summary text without bullet points or pre
     );
   };
 
-  // Form Submit Handler
+  // Form Submit Handler with strict duplicate submission prevention
   const handleSubmitLog = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting || isSubmittingRef.current) {
+      return; // Block immediate re-clicks
+    }
+
     setValidationErrors([]);
 
     const errors: string[] = [];
@@ -404,10 +411,15 @@ Format as clean professional executive summary text without bullet points or pre
 
     if (errors.length > 0) {
       setValidationErrors(errors);
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
       return;
     }
 
+    // Lock synchronous submission state
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
+
     // 10-Minute Policy: Calls under 10 minutes do NOT require proof and are automatically approved without PENDING status!
     const isUnder10Mins = durationMinutes <= 10;
     const hasDirectProof = Boolean(proofLink.trim() && proofLink.trim().length > 3);
@@ -456,9 +468,8 @@ Format as clean professional executive summary text without bullet points or pre
       clearActiveLogSession();
 
       setShowSuccessAlert(true);
-      setIsSubmitting(false);
 
-      // Reset and route back cleanly
+      // Keep button locked until page closes to prevent re-submission
       setTimeout(() => {
         handleResetForNextClient();
         setShowSuccessAlert(false);
@@ -466,6 +477,7 @@ Format as clean professional executive summary text without bullet points or pre
         setCurrentModule(ModuleId.DASHBOARD);
       }, 1500);
     } catch (err: any) {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
       setValidationErrors([err?.message || 'Failed to save daily work log.']);
     }

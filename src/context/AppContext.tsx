@@ -174,6 +174,8 @@ import { fetchClientsFromGAS, postWorkLogToGAS, AddWorkLogPayload, isValidProofL
 import { loadStoredUsers, saveStoredUsers, authenticateUser, serverLogin, syncSupportTeamFromClients, syncUsersWithServer, persistUserToServer } from '../utils/userDirectory';
 import { authService } from '../utils/auth';
 
+const recentAppWorkLogCache = new Map<string, number>();
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser, login: loginAsAuth, loginWithUser, logout: logoutAuth } = useAuth();
 
@@ -1976,6 +1978,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const mins = (log.durationMinutes || 15) % 60;
     const durationFormatted = log.duration || `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00`;
 
+    // Strict in-memory submission deduplication: Prevents double/triple row insertion if user clicks multiple times
+    const dedupeSignature = `${todayStr}|${teId}|${(log.clientName || '').trim().toLowerCase()}|${(log.details || '').trim().toLowerCase().slice(0, 80)}`;
+    const lastSubTime = recentAppWorkLogCache.get(dedupeSignature);
+    if (lastSubTime && Date.now() - lastSubTime < 30000) {
+      console.log('[AppContext] Duplicate work log submission blocked:', dedupeSignature);
+      return { success: true, message: 'Already recorded (duplicate prevented)' };
+    }
+    recentAppWorkLogCache.set(dedupeSignature, Date.now());
+
     let gasResult: { success: boolean; message?: string } = { success: true, message: 'Saved locally' };
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
@@ -2418,7 +2429,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       postWorkLogToGAS({
         action: 'updateWorkLogProof',
         id: logId,
-        updateExistingOnly: false,
+        updateExistingOnly: true, // Strictly update existing row in sheet, NEVER append a new row!
+        searchKey: targetLog.teId,
+        matchTeId: targetLog.teId,
+        matchClientName: targetLog.clientName,
+        matchDate: targetLog.date,
+        matchSummary: targetLog.details,
+        matchSupportName: targetLog.executiveName,
         date: targetLog.date,
         supportName: targetLog.executiveName,
         executiveName: targetLog.executiveName,
@@ -2433,12 +2450,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         status: updates.status || targetLog.status || 'Completed',
         summary: targetLog.details || '',
         details: targetLog.details || '',
+        'Summary': targetLog.details || '',
         proofLink: updates.proofLink || targetLog.proofLink || '',
         'Proof Link': updates.proofLink || targetLog.proofLink || '',
         managerRemark: activeRemark,
         'Manager Remark': activeRemark,
+        specialManagerRemark: activeRemark,
+        'Special Manager Remark': activeRemark,
         cooRemark: updates.cooRemark || targetLog.cooRemark || '',
         'COO Remark': updates.cooRemark || targetLog.cooRemark || '',
+        saadNote: updates.saadNote || activeRemark,
+        'Note Saad': updates.saadNote || activeRemark,
+        remarks: activeRemark,
+        'Remarks': activeRemark,
         approvalStatus: updates.approvalStatus || targetLog.approvalStatus || 'Approved',
         approvalRemark: updates.approvalRemark || activeRemark,
         startTime: targetLog.startTime || '09:00',
@@ -2526,12 +2550,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         body: JSON.stringify({ ...updatedEntry, skipGas: true })
       }).catch(err => console.warn('[AppContext] Server work logs proof update notice:', err));
 
-      // 4. Dispatch to GAS so Ultimate Sheet receives the verified proof link
+      // 4. Dispatch to GAS with updateExistingOnly: true so existing row is updated in-place without creating a double row
       postWorkLogToGAS(
         {
           action: 'updateWorkLogProof',
           id: logId,
-          updateExistingOnly: false,
+          updateExistingOnly: true, // Strictly update existing row in sheet, NEVER append a new row!
+          searchKey: updatedEntry.teId,
+          matchTeId: updatedEntry.teId,
+          matchClientName: updatedEntry.clientName,
+          matchDate: updatedEntry.date,
+          matchSummary: updatedEntry.details,
           date: updatedEntry.date,
           supportName: updatedEntry.executiveName,
           executiveName: updatedEntry.executiveName,
@@ -2559,6 +2588,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           followUpDate: updatedEntry.nextFollowUpDate || '',
           managerRemark: updatedEntry.managerRemark || '',
           'Manager Remark': updatedEntry.managerRemark || '',
+          specialManagerRemark: updatedEntry.specialManagerRemark || updatedEntry.managerRemark || '',
+          'Special Manager Remark': updatedEntry.specialManagerRemark || updatedEntry.managerRemark || '',
           remarksClient: updatedEntry.remarksClient || updatedEntry.remarks || '',
           lastWorkSummary: updatedEntry.lastWorkSummary || updatedEntry.details || ''
         },

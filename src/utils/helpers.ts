@@ -917,58 +917,72 @@ export const postWorkLogToGAS = async (
     (effectivePayload as any)['proof_link'] = remark;
   }
 
-  const fingerprint = `${effectivePayload.action}|${logId}|${effectivePayload.teId}|${effectivePayload.clientName}|${effectivePayload.date}|${effectiveProofLink}`;
+  // If this action is an update (proof link, remark, status), enforce updateExistingOnly: true
+  // This guarantees that Google Apps Script NEVER appends a new row when updating existing logs!
+  if (
+    effectivePayload.action === 'updateWorkLogProof' ||
+    effectivePayload.action === 'syncTicketResponse1' ||
+    effectivePayload.action?.startsWith('update')
+  ) {
+    effectivePayload.updateExistingOnly = true;
+  }
+
+  // Deduplication fingerprint based on work log content (intentionally ignores transient local logId)
+  const normSummary = (effectivePayload.summary || (effectivePayload as any).details || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .slice(0, 80);
+  const normClient = (effectivePayload.clientName || '').trim().toLowerCase();
+  const normTeId = (effectivePayload.teId || '').trim().toUpperCase();
+  const normDate = (effectivePayload.date || '').trim();
+  const normAction = effectivePayload.action || 'addWorkLog';
+
+  const contentFingerprint = `${normAction}|${normTeId}|${normClient}|${normDate}|${normSummary}`;
   const now = Date.now();
-  const lastPostTime = recentGasPostCache.get(fingerprint);
-  if (lastPostTime && now - lastPostTime < 8000) {
-    Logger.info('postWorkLogToGAS', `Skipped duplicate GAS post within 8s for ${effectivePayload.clientName} (${logId})`);
+  const lastPostTime = recentGasPostCache.get(contentFingerprint);
+  if (lastPostTime && now - lastPostTime < 30000) {
+    Logger.info('postWorkLogToGAS', `Skipped duplicate GAS post within 30s for ${effectivePayload.clientName} (${contentFingerprint})`);
     return { success: true, message: 'Already synchronized (Duplicate prevented)' };
   }
-  recentGasPostCache.set(fingerprint, now);
+  recentGasPostCache.set(contentFingerprint, now);
 
-  // In browser environments, proxy through /api/proxy to completely prevent CORS blocking by Google Apps Script
-  const endpointsToTry =
+  // In browser environments, proxy through /api/proxy to prevent CORS issues
+  const targetEndpoint =
     typeof window !== 'undefined' && endpoint.includes('script.google.com')
-      ? ['/api/proxy', endpoint]
-      : [endpoint];
+      ? '/api/proxy'
+      : endpoint;
 
-  let lastError: any = null;
+  try {
+    const isProxy = targetEndpoint === '/api/proxy';
+    const response = await fetch(targetEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': isProxy ? 'application/json' : 'text/plain;charset=utf-8'
+      },
+      body: JSON.stringify(effectivePayload),
+      redirect: 'follow'
+    });
 
-  for (const currentEndpoint of endpointsToTry) {
+    let result: any = { success: true };
     try {
-      const isProxy = currentEndpoint === '/api/proxy';
-      const response = await fetch(currentEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': isProxy ? 'application/json' : 'text/plain;charset=utf-8'
-        },
-        body: JSON.stringify(effectivePayload),
-        redirect: 'follow'
-      });
-
-      let result: any = { success: true };
+      const text = await response.text();
       try {
-        const text = await response.text();
-        try {
-          result = JSON.parse(text);
-        } catch {
-          result = { success: response.ok, message: 'Dispatched to Google Sheet', raw: text };
-        }
+        result = JSON.parse(text);
       } catch {
-        result = { success: response.ok };
+        result = { success: response.ok, message: 'Dispatched to Google Sheet', raw: text };
       }
-
-      if (logId && (result.success || response.ok)) {
-        synchronizedLogIds.add(logId);
-      }
-      Logger.info('postWorkLogToGAS', `Google Apps Script response from ${currentEndpoint}:`, result);
-      return result;
-    } catch (err) {
-      lastError = err;
-      Logger.warn('postWorkLogToGAS', `Attempt failed on ${currentEndpoint}, trying next:`, err);
+    } catch {
+      result = { success: response.ok };
     }
-  }
 
-  Logger.error('postWorkLogToGAS', 'Failed to submit work log to Google Apps Script on all endpoints', lastError);
-  return { success: false, message: (lastError as any)?.message || 'Sync queued' };
+    if (logId && (result.success || response.ok)) {
+      synchronizedLogIds.add(logId);
+    }
+    Logger.info('postWorkLogToGAS', `Google Apps Script response from ${targetEndpoint}:`, result);
+    return result;
+  } catch (err: any) {
+    Logger.error('postWorkLogToGAS', 'Failed to dispatch work log to Google Apps Script proxy', err);
+    return { success: false, message: err?.message || 'Sync queued' };
+  }
 };
