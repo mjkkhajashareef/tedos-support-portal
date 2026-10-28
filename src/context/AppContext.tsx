@@ -1379,11 +1379,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      let found = false;
+      let targetUpdatedUser: User | null = null;
       const updatedList = current.map(u => {
         if (isSameUser(u)) {
           found = true;
-          return {
+          const upUser: User = {
             ...u,
             ...user,
             id: u.id || user.id, // Keep stable ID
@@ -1391,22 +1391,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             name: user.name.trim(),
             email: user.email.trim().toLowerCase(),
             mobile: user.mobile.trim(),
+            password: user.password && user.password.trim() ? user.password.trim() : (u.password || 'Admin@123'),
+            designation: user.designation || u.designation || user.role,
             department: user.department || u.department,
             role: user.role || u.role,
             baseSalary: user.baseSalary !== undefined ? Number(user.baseSalary) : u.baseSalary,
             monthlyIncentive: user.monthlyIncentive !== undefined ? Number(user.monthlyIncentive) : u.monthlyIncentive,
             assignedClients: user.assignedClients || u.assignedClients || []
           };
+          targetUpdatedUser = upUser;
+          return upUser;
         }
         return u;
       });
 
       if (!found) {
+        targetUpdatedUser = user;
         updatedList.push(user);
       }
 
       saveStoredUsers(updatedList);
       setUsers(updatedList);
+
+      // If active logged-in user matches the edited user, update currentUser immediately
+      if (
+        currentUser &&
+        targetUpdatedUser &&
+        (currentUser.id === (targetUpdatedUser as User).id ||
+          (currentUser.employeeId && (currentUser.employeeId || '').toLowerCase() === (targetUpdatedUser as User).employeeId.toLowerCase()) ||
+          (currentUser.email && (currentUser.email || '').toLowerCase() === (targetUpdatedUser as User).email.toLowerCase()))
+      ) {
+        loginWithUser({ ...currentUser, ...(targetUpdatedUser as User) });
+      }
 
       // Also sync assignedExecutive on clients if assignedClients was updated
       if (Array.isArray(user.assignedClients)) {
@@ -1421,10 +1437,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // Persist to central server for instant cross-device synchronization
-      await persistUserToServer(user);
+      await persistUserToServer(targetUpdatedUser || user);
 
       try {
-        await apiGateway.updateUser(user.id, user);
+        await apiGateway.updateUser(user.id, targetUpdatedUser || user);
       } catch (e) {
         console.warn('apiGateway background updateUser warning (saved locally):', e);
       }
@@ -1435,7 +1451,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         type: 'success'
       });
 
-      return user;
+      return targetUpdatedUser || user;
     } catch (err) {
       console.error('Failed to update user', err);
       throw err;

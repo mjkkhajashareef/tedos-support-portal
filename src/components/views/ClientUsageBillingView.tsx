@@ -198,10 +198,30 @@ export const ClientUsageBillingView: React.FC<{ id?: string }> = ({ id }) => {
     remarks: ''
   });
 
-  // Save changes to localStorage
+  // Load initial authoritative records from server
+  useEffect(() => {
+    fetch('/api/client-billing')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.billing) && data.billing.length > 0) {
+          setRecords(data.billing);
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data.billing));
+          } catch {}
+        }
+      })
+      .catch(err => console.warn('Billing records load notice:', err));
+  }, []);
+
+  // Save changes to localStorage and server
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+      fetch('/api/client-billing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(records)
+      }).catch(err => console.warn('Billing records save notice:', err));
     } catch {}
   }, [records]);
 

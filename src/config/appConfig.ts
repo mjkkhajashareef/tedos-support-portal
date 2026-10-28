@@ -4,6 +4,8 @@
  */
 
 export const GOOGLE_APPS_SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxhbrnIQMIFHpZGXxq2Q2xnPJLPQtnCpDbDXFIOBPeWo6vulj2jEiWWrVlonr6dHa_M/exec';
+// Client Information, Billing & Usage dedicated script URL (isolated from Ultimate Sheet)
+export const GOOGLE_APPS_SCRIPT_CLIENT_USAGE_BILLING_URL = 'https://script.google.com/macros/s/AKfycbwnTipPI0OqpJdmgJa5q7ZgPit0jyIVvxFamdbC8pTVpYslchy2vfoOYdD_Po-8QsAE/exec';
 
 export interface AppConfiguration {
   envName: 'development' | 'testing' | 'production';

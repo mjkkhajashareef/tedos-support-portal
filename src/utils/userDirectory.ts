@@ -236,44 +236,25 @@ export const loadStoredUsers = (): User[] => {
       const parsed: User[] = JSON.parse(raw);
       // Filter out any old demo users ("Rahul Sharma", "Sneha Patel", etc.)
       const cleaned = parsed.filter(u => {
+        if (!u) return false;
         const lower = (u.name || '').trim().toLowerCase();
         const first = lower.split(' ')[0];
         if (PURGED_DEMO_NAMES.has(lower) || PURGED_DEMO_NAMES.has(first)) return false;
-        if (u.id.includes('sheet-') && !DEFAULT_USERS.some(d => d.name.toLowerCase().includes(first))) return false;
+        if (u.id && u.id.includes('sheet-') && !DEFAULT_USERS.some(d => d.name.toLowerCase().includes(first))) return false;
         return true;
       });
-      const merged = [...cleaned];
-      DEFAULT_USERS.forEach(defUser => {
-        const existingIdx = merged.findIndex(
-          u =>
-            (u.id && defUser.id && u.id === defUser.id) ||
-            u.email.toLowerCase() === defUser.email.toLowerCase() ||
-            (u.employeeId && u.employeeId.toLowerCase() === defUser.employeeId.toLowerCase()) ||
-            u.name.trim().toLowerCase() === defUser.name.trim().toLowerCase()
+
+      // If users exist in storage, return them directly without overwriting edited fields with hardcoded defaults!
+      if (cleaned.length > 0) {
+        // Ensure Director account exists if missing
+        const hasDirector = cleaned.some(
+          u => u.role === UserRole.DIRECTOR || (u.email || '').toLowerCase() === 'azhaer@philsof.com'
         );
-        if (existingIdx === -1) {
-          merged.push(defUser);
-        } else {
-          // Preserve all user-edited fields: name, mobile, email, employeeId, department, salary, role, clients
-          merged[existingIdx] = {
-            ...defUser,
-            ...merged[existingIdx],
-            name: merged[existingIdx].name || defUser.name,
-            password: merged[existingIdx].password || defUser.password,
-            employeeId: merged[existingIdx].employeeId || defUser.employeeId,
-            email: merged[existingIdx].email || defUser.email,
-            mobile: merged[existingIdx].mobile || defUser.mobile,
-            role: merged[existingIdx].role || defUser.role,
-            department: merged[existingIdx].department || defUser.department,
-            baseSalary: merged[existingIdx].baseSalary !== undefined ? merged[existingIdx].baseSalary : defUser.baseSalary,
-            monthlyIncentive: merged[existingIdx].monthlyIncentive !== undefined ? merged[existingIdx].monthlyIncentive : defUser.monthlyIncentive,
-            assignedClients: merged[existingIdx].assignedClients || defUser.assignedClients,
-            active: true,
-            status: UserStatus.ACTIVE
-          };
+        if (!hasDirector) {
+          cleaned.unshift(MASTER_DIRECTOR_USER);
         }
-      });
-      return merged;
+        return cleaned;
+      }
     }
   } catch (err) {
     console.error('Failed to load user directory from storage', err);
@@ -304,19 +285,9 @@ export const syncUsersWithServer = async (): Promise<User[]> => {
     if (res.ok) {
       const data = await res.json();
       if (data.success && Array.isArray(data.users) && data.users.length > 0) {
-        const local = loadStoredUsers();
-        const map = new Map<string, User>();
-        local.forEach(u => map.set(u.id || u.employeeId, u));
-
-        data.users.forEach((srvUser: any) => {
-          const key = srvUser.id || srvUser.employeeId;
-          const existing = map.get(key);
-          map.set(key, { ...existing, ...srvUser });
-        });
-
-        const merged = Array.from(map.values());
-        saveStoredUsers(merged);
-        return merged;
+        const srvUsers: User[] = data.users;
+        saveStoredUsers(srvUsers);
+        return srvUsers;
       }
     }
   } catch (err) {

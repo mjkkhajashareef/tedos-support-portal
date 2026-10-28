@@ -16,6 +16,7 @@ const BRANDING_FILE = path.join(DATA_DIR, "branding.json");
 const INTERAKT_SETTINGS_FILE = path.join(DATA_DIR, "interakt_settings.json");
 const INTERAKT_LOGS_FILE = path.join(DATA_DIR, "interakt_logs.json");
 const USERS_FILE = path.join(DATA_DIR, "users.json");
+const CLIENT_BILLING_FILE = path.join(DATA_DIR, "client_usage_billing.json");
 
 const DEFAULT_USERS_DATA = [
   {
@@ -434,6 +435,36 @@ async function startServer() {
     }
   });
 
+  // Client Details & Usage Billing Endpoints (Isolated from Ultimate Sheet)
+  app.get("/api/client-billing", (req, res) => {
+    const billing = readJsonFile<any[]>(CLIENT_BILLING_FILE, []);
+    res.json({ success: true, count: billing.length, billing });
+  });
+
+  app.post("/api/client-billing", (req, res) => {
+    try {
+      const incoming = req.body;
+      const current = readJsonFile<any[]>(CLIENT_BILLING_FILE, []);
+      const newItems = Array.isArray(incoming) ? incoming : [incoming];
+      const map = new Map<string, any>();
+      current.forEach(item => {
+        if (item && (item.teId || item.id)) map.set(item.teId || item.id, item);
+      });
+      newItems.forEach(item => {
+        if (item && (item.teId || item.id)) {
+          const key = item.teId || item.id;
+          const existing = map.get(key) || {};
+          map.set(key, { ...existing, ...item, updatedAt: new Date().toISOString() });
+        }
+      });
+      const updated = Array.from(map.values());
+      writeJsonFile(CLIENT_BILLING_FILE, updated);
+      res.json({ success: true, count: updated.length, billing: updated });
+    } catch (e: any) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
   // Internal Communication & Messaging Endpoints (Requirement #4)
   app.get("/api/messages", (req, res) => {
     const messages = readJsonFile<any[]>(MESSAGES_FILE, []);
@@ -705,22 +736,30 @@ async function startServer() {
       }
       let found = false;
 
+      const target = decodeURIComponent(id || "").trim().toLowerCase();
+      const targetClean = target.replace(/[^a-z0-9]/gi, "");
+      const updatesId = (updates.id || "").trim().toLowerCase();
+      const updatesEmpId = (updates.employeeId || "").trim().toLowerCase();
+      const updatesEmail = (updates.email || "").trim().toLowerCase();
+
       const updated = currentUsers.map(u => {
         const uId = (u.id || "").toLowerCase();
         const uEmp = (u.employeeId || "").toLowerCase();
         const uEmpClean = uEmp.replace(/[^a-z0-9]/gi, "");
         const uEmail = (u.email || "").toLowerCase();
-        const target = id.toLowerCase();
-        const targetClean = target.replace(/[^a-z0-9]/gi, "");
         const aliases: string[] = Array.isArray(u.aliases) ? u.aliases.map((a: string) => String(a).toLowerCase()) : [];
 
-        if (
+        const isMatch =
           uId === target ||
           uEmp === target ||
           (targetClean && uEmpClean === targetClean) ||
           uEmail === target ||
-          aliases.includes(target)
-        ) {
+          aliases.includes(target) ||
+          (updatesId && uId === updatesId) ||
+          (updatesEmpId && uEmp === updatesEmpId) ||
+          (updatesEmail && uEmail === updatesEmail);
+
+        if (isMatch) {
           found = true;
           // Keep old email and new email in aliases so login works with either
           const updatedAliases = Array.isArray(u.aliases) ? [...u.aliases] : [];
@@ -737,7 +776,18 @@ async function startServer() {
           return {
             ...u,
             ...updates,
-            id: u.id || id, // Preserve ID
+            id: u.id || updates.id || id, // Preserve ID
+            name: updates.name ? updates.name.trim() : u.name,
+            employeeId: updates.employeeId ? updates.employeeId.trim() : u.employeeId,
+            email: updates.email ? updates.email.trim().toLowerCase() : u.email,
+            mobile: updates.mobile ? updates.mobile.trim() : u.mobile,
+            password: updates.password ? updates.password.trim() : u.password,
+            department: updates.department || u.department,
+            role: updates.role || u.role,
+            designation: updates.designation || u.designation || updates.role || u.role,
+            baseSalary: updates.baseSalary !== undefined ? Number(updates.baseSalary) : u.baseSalary,
+            monthlyIncentive: updates.monthlyIncentive !== undefined ? Number(updates.monthlyIncentive) : u.monthlyIncentive,
+            assignedClients: updates.assignedClients || u.assignedClients || [],
             aliases: updatedAliases,
             updatedAt: new Date().toISOString()
           };
@@ -758,10 +808,9 @@ async function startServer() {
         const uId = (u.id || "").toLowerCase();
         const uEmp = (u.employeeId || "").toLowerCase();
         const uEmail = (u.email || "").toLowerCase();
-        const target = id.toLowerCase();
-        return uId === target || uEmp === target || uEmail === target;
+        return uId === target || uEmp === target || uEmail === target || (updatesId && uId === updatesId);
       });
-      res.json({ success: true, user: savedUser, count: updated.length });
+      res.json({ success: true, user: savedUser || updates, count: updated.length });
     } catch (e: any) {
       res.status(500).json({ success: false, error: e.message });
     }
