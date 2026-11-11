@@ -194,9 +194,18 @@ export const Header: React.FC<HeaderProps> = ({ id }) => {
           </div>
         )}
         <div className="flex flex-col">
-          <h1 className="text-sm sm:text-base font-bold tracking-tight text-md-on-background line-clamp-1">
-            {getModuleTitle()}
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-sm sm:text-base font-bold tracking-tight text-md-on-background line-clamp-1">
+              {getModuleTitle()}
+            </h1>
+            <span
+              className="hidden xl:inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700 select-none"
+              title="System Conceived & Architected by Mohammed Khaja Shareef (COO, Techno Evident Pvt Ltd)"
+            >
+              <span className="text-indigo-600 dark:text-indigo-400 font-bold">COO Arch:</span>
+              <span className="font-semibold">M. Khaja Shareef</span>
+            </span>
+          </div>
           {currentUser && (
             <div className="flex items-center gap-1.5 md:hidden">
               <span className="text-[10px] font-medium text-md-outline uppercase font-mono">

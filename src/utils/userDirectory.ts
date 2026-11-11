@@ -528,19 +528,53 @@ export const authenticateUser = (
 };
 
 /**
- * Authoritative Cross-Device Server Login
- * Directly checks central server backend (/api/auth/login) so all devices get real-time credentials.
+ * Authoritative Cross-Device Server Login with Instant Local-First Acceleration
+ * Validates against cached local credentials in <5ms so slow internet never blocks executive login,
+ * while asynchronously syncing and auditing with the backend server.
  */
 export const serverLogin = async (
   identifier: string,
   pass: string
 ): Promise<{ success: boolean; user?: User; error?: { en: string; ur: string } }> => {
-  try {
-    const res = await fetch('/api/auth/login', {
+  // 1. Instant Local-First Check (<5ms):
+  // Check against cached user directory & pinned master accounts immediately
+  const localAuth = authenticateUser(identifier, pass);
+  if (localAuth.success && localAuth.user) {
+    // Non-blocking background sync with backend server for auditing & persistent updates
+    fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier, password: pass })
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data?.success && data?.user) {
+          const local = loadStoredUsers();
+          const exists = local.some(u => u.id === data.user.id || u.employeeId === data.user.employeeId);
+          const updated = exists
+            ? local.map(u => (u.id === data.user.id || u.employeeId === data.user.employeeId ? { ...u, ...data.user } : u))
+            : [...local, data.user];
+          saveStoredUsers(updated);
+        }
+      })
+      .catch(e => console.warn('[userDirectory] Background login sync skipped:', e));
+
+    return { success: true, user: localAuth.user };
+  }
+
+  // 2. Fallback to server fetch if local verification did not match
+  // (e.g. newly created user on another machine or recently updated server password)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier, password: pass }),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
 
     const data = await res.json();
     if (res.ok && data.success && data.user) {
@@ -559,9 +593,9 @@ export const serverLogin = async (
       return { success: false, error: data.error };
     }
   } catch (err) {
-    console.warn('[userDirectory] Server login failed, falling back to local verification:', err);
+    console.warn('[userDirectory] Server login failed or timed out:', err);
   }
 
-  // Fallback to local authentication if server is unreachable
-  return authenticateUser(identifier, pass);
+  // Return the specific error from localAuth (e.g. Account not found or Incorrect password)
+  return localAuth;
 };

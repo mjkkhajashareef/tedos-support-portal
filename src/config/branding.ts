@@ -27,6 +27,11 @@ export interface BrandAssetConfig {
   meta: {
     copyrightHolder: string;
     poweredByText: string;
+    systemArchitectName: string;
+    systemArchitectRole: string;
+    systemArchitectCompany: string;
+    systemArchitectFullCredit: string;
+    systemArchitectFullCreditUr: string;
   };
 }
 
@@ -50,5 +55,10 @@ export const TEDOS_BRAND_ASSETS: BrandAssetConfig = {
   meta: {
     copyrightHolder: 'Techno Evident Pvt. Ltd.',
     poweredByText: 'Powered by TEDOS Secure Core Framework',
+    systemArchitectName: 'Mohammed Khaja Shareef',
+    systemArchitectRole: 'Chief Operating Officer (COO)',
+    systemArchitectCompany: 'Techno Evident Pvt. Ltd.',
+    systemArchitectFullCredit: 'Conceived, Designed & Architected by Mohammed Khaja Shareef (COO, Techno Evident Pvt. Ltd.)',
+    systemArchitectFullCreditUr: 'سسٹم کی تشکیل، آپریشنل ڈیزائن اور نگرانی: محمد خواجہ شریف (چیف آپریٹنگ آفیسر - Techno Evident Pvt Ltd)',
   },
 };

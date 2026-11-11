@@ -327,8 +327,14 @@ export const PendingProofLinksModal: React.FC<PendingProofLinksModalProps> = ({
                         <Calendar size={11} />
                         <span>{log.date}</span>
                       </div>
-                      <div className="text-amber-600 dark:text-amber-400 font-bold mt-0.5">
-                        {log.durationMinutes} {isUrdu ? 'منٹ' : 'mins'}
+                      {(log.startTime || log.time) && (
+                        <div className="flex items-center gap-1 justify-end text-[10px] text-blue-600 dark:text-blue-400 font-bold mt-0.5">
+                          <Clock size={10} />
+                          <span>{log.startTime || log.time} {log.endTime ? `– ${log.endTime}` : ''}</span>
+                        </div>
+                      )}
+                      <div className="text-amber-600 dark:text-amber-400 font-black mt-0.5">
+                        ⏱️ {log.duration || `${log.durationMinutes} mins`}
                       </div>
                     </div>
                   </div>

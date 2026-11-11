@@ -275,6 +275,31 @@ export const LoginView: React.FC<LoginViewProps> = ({ id }) => {
         </div>
       </div>
 
+      {/* System Leadership & Architectural Attribution */}
+      <div className="w-full mt-4 p-4 rounded-3xl bg-gradient-to-br from-indigo-950/20 via-purple-950/10 to-blue-950/20 dark:from-indigo-950/40 dark:to-slate-900 border border-indigo-500/30 dark:border-indigo-500/30 shadow-md text-center space-y-1.5 backdrop-blur-xs">
+        <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-indigo-600 dark:text-indigo-400 block">
+          {language === 'ur'
+            ? '🏛️ سسٹم تصور و آپریشنل ڈیزائن'
+            : '🏛️ System Architecture & Operational Blueprint'}
+        </span>
+        <div className="text-sm font-black text-slate-900 dark:text-white flex items-center justify-center gap-1.5 flex-wrap">
+          <span>Mohammed Khaja Shareef</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-600 text-white font-mono font-bold">
+            COO
+          </span>
+        </div>
+        <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+          {language === 'ur'
+            ? 'چیف آپریٹنگ آفیسر (COO) • Techno Evident Pvt. Ltd.'
+            : 'Chief Operating Officer (COO) • Techno Evident Pvt. Ltd.'}
+        </p>
+        <p className="text-[10px] text-slate-500 dark:text-slate-400">
+          {language === 'ur'
+            ? 'یہ مکمل آپریشنل سسٹم محمد خواجہ شریف (COO) کے تصور، اصول اور نگرانی کے تحت تشکیل دیا گیا ہے۔'
+            : 'Conceived, Designed & Architected by Mohammed Khaja Shareef for Customer Support & Operational Governance.'}
+        </p>
+      </div>
+
       {/* Security & Version Footnote */}
       <div className="mt-5 text-center text-xs text-slate-400 flex items-center justify-center gap-1.5">
         <ShieldCheck size={14} className="text-emerald-500" />

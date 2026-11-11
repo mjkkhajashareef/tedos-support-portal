@@ -820,6 +820,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ id }) => {
           </div>
         </div>
       )}
+
+      {/* System Leadership, Architecture & Intellectual Ownership */}
+      <MaterialCard variant="elevated" className="mt-8 p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border border-indigo-500/30 shadow-xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <span className="text-[10px] font-mono uppercase font-bold text-indigo-400 tracking-widest block">
+              {isUrdu ? '🏛️ سسٹم تصور، پالیسی و آپریشنل ڈیزائن' : '🏛️ System Architecture & Operational Blueprint'}
+            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-lg font-black tracking-wide text-white">
+                Mohammed Khaja Shareef
+              </h3>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/30 text-indigo-300 border border-indigo-500/40">
+                COO
+              </span>
+            </div>
+            <p className="text-xs text-slate-300">
+              {isUrdu
+                ? 'چیف آپریٹنگ آفیسر (COO) • Techno Evident Pvt. Ltd.'
+                : 'Chief Operating Officer (COO) • Techno Evident Pvt. Ltd.'}
+            </p>
+            <p className="text-[11px] text-slate-400 max-w-2xl leading-relaxed mt-1">
+              {isUrdu
+                ? 'یہ مکمل آپریشنل سسٹم محمد خواجہ شریف (COO) کے عملی تجربے، پالیسی اور آرکیٹیکچر کے تحت تشکیل دیا گیا ہے تاکہ کلائنٹ سروسز، 7 گھنٹے ورک لاگ اور انتظامی رپورٹنگ کا عمل جدید ترین سافٹ ویئر کی شکل اختیار کر سکے۔'
+                : 'Conceived, Designed & Architected by Mohammed Khaja Shareef (COO, Techno Evident Pvt Ltd) to empower high-performance customer support operations, real-time client governance, and automated Google Sheets sync.'}
+            </p>
+          </div>
+          <div className="text-right shrink-0">
+            <span className="text-[10px] font-mono text-slate-400 block">Organization</span>
+            <span className="text-xs font-bold text-white block">Techno Evident Pvt. Ltd.</span>
+            <span className="text-[10px] text-emerald-400 font-mono block mt-1">● Enterprise Core Active</span>
+          </div>
+        </div>
+      </MaterialCard>
     </div>
   );
 };

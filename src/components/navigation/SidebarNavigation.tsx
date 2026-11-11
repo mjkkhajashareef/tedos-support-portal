@@ -256,6 +256,30 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ id }) => {
           </div>
         </div>
       )}
+
+      {/* System Architect & Leadership Credit Footer */}
+      {isSidebarOpen ? (
+        <div className="px-3 py-2 border-t border-md-surface-variant/40 bg-md-surface-container-low/40 text-center select-none">
+          <span className="text-[9px] text-md-outline block font-medium">
+            {language === 'ur' ? 'تصور و آرکیٹیکچر ڈیزائن:' : 'Conceived & Architected by:'}
+          </span>
+          <span className="text-[10.5px] font-black text-indigo-600 dark:text-indigo-400 block truncate">
+            Mohammed Khaja Shareef
+          </span>
+          <span className="text-[8.5px] font-mono text-slate-500 dark:text-slate-400 block truncate">
+            COO, Techno Evident Pvt Ltd
+          </span>
+        </div>
+      ) : (
+        <div 
+          className="p-1.5 border-t border-md-surface-variant/40 flex justify-center text-indigo-600 dark:text-indigo-400 cursor-pointer"
+          title="Architected by: Mohammed Khaja Shareef (COO, Techno Evident Pvt Ltd)"
+        >
+          <span className="text-[9px] font-black font-mono px-1 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800">
+            COO
+          </span>
+        </div>
+      )}
     </div>
   );
 };

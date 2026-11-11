@@ -1380,6 +1380,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       let targetUpdatedUser: User | null = null;
+      let found = false;
       const updatedList = current.map(u => {
         if (isSameUser(u)) {
           found = true;

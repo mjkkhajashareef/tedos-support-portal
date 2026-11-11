@@ -51,6 +51,9 @@ export const DailyWorkLogView: React.FC<DailyWorkLogViewProps> = ({ id }) => {
     setCurrentModule,
     setIsBlankWorkspace,
     setWhatsAppModalOpen,
+    openPendingProofModal,
+    workLogs,
+    tickets,
     language,
     activeLogSession,
     updateActiveLogSession,
@@ -58,6 +61,26 @@ export const DailyWorkLogView: React.FC<DailyWorkLogViewProps> = ({ id }) => {
   } = useApp();
 
   const isUrdu = language === 'ur';
+
+  // Count pending proof links for this executive
+  const pendingCount = useMemo(() => {
+    const currentExecName = (currentUser?.name || '').trim().toLowerCase();
+    const allLogs = [...workLogs, ...(tickets?.flatMap(t => t.workLogs || []) || [])];
+    return allLogs.filter(log => {
+      if (!log || log.approvalStatus === 'Approved') return false;
+      if (currentExecName) {
+        const logExec = (log.executiveName || (log as any).supportName || '').trim().toLowerCase();
+        if (!logExec.includes(currentExecName) && !currentExecName.includes(logExec)) {
+          return false;
+        }
+      }
+      return (
+        log.isProofPending === true ||
+        log.proofLink === 'PENDING' ||
+        (!log.proofLink && Number(log.durationMinutes) > 10)
+      );
+    }).length;
+  }, [workLogs, tickets, currentUser]);
 
   // 1) Select Client (Restored from activeLogSession if user navigated away, or globalSelectedClientId)
   const [selectedClientId, setSelectedClientId] = useState<string>(
@@ -543,6 +566,20 @@ Format as clean professional executive summary text without bullet points or pre
 
             <button
               type="button"
+              onClick={openPendingProofModal}
+              className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+              title="Open Pending Proof Links to paste recording URL"
+            >
+              <Link2 size={14} />
+              <span>
+                {isUrdu
+                  ? `زیر التواء ریکارڈنگز (${pendingCount})`
+                  : `Pending Proofs (${pendingCount})`}
+              </span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setWhatsAppModalOpen(true)}
               className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition cursor-pointer"
               title="Share end-of-shift daily summary to official WhatsApp group"
@@ -656,6 +693,23 @@ Format as clean professional executive summary text without bullet points or pre
                 </a>
               </div>
             )}
+
+            {/* Important Guidance Note for Delayed Google Meet Recordings */}
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-900 dark:text-amber-200 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold">
+                <AlertCircle size={14} className="text-amber-600 shrink-0" />
+                <span>
+                  {isUrdu
+                    ? '💡 گوگل میٹ ریکارڈنگ تاخیر سے آنے پر ضروری رہنمائی:'
+                    : '💡 Important: Handling Delayed Google Meet Recordings:'}
+                </span>
+              </div>
+              <p className="leading-relaxed text-slate-700 dark:text-slate-300">
+                {isUrdu
+                  ? 'میٹنگ کے دوران ہمیشہ اصل کلائنٹ ہی منتخب کریں (کبھی بھی "Coo" یا کوئی ڈمی نام منتخب نہ کریں)۔ اختتامی وقت اور دورانیہ خود بخود لاک ہو جائے گا۔ نیچے Step 10 میں "⏱️ بعد میں اپلوڈ کروں گا (Pending)" منتخب کر کے لاگ سیو کر لیں۔ جب بعد میں ریکارڈنگ لنک آئے، تو اوپر موجود "زیر التواء ریکارڈنگز" بٹن دبا کر لنک پیسٹ کر دیں — اس سے کوئی ڈبل اینٹری نہیں ہوگی اور اصل کلائنٹ کی اسی اینٹری میں لنک درج ہو جائے گا۔'
+                  : 'Always select the actual client (never select "Coo" or dummy names). End time & duration lock automatically. In Step 10, select "Upload Later (Pending)" and save. When the recording link arrives from Google Drive, click the "Pending Proofs" button above to paste the link into the existing entry without creating duplicates.'}
+              </p>
+            </div>
           </div>
 
           {/* STEP 2: Auto Sessions Timer (ONLY Start Time in this box) */}
@@ -1041,9 +1095,19 @@ Format as clean professional executive summary text without bullet points or pre
                 </p>
                 <p className="text-[11px] text-blue-700 dark:text-blue-300">
                   {isUrdu
-                    ? 'یہ لاگ محفوظ ہو کر ہوم پیج (ڈیش بورڈ) کے "پینڈنگ پروف لنکس" الرٹ میں چلا جائے گا۔ آپ بعد میں مین پیج سے لنک کاپی پیسٹ کر سکتے ہیں۔'
-                    : 'This log will enter the Home Dashboard "Pending Proof Links" queue so you can paste the link later.'}
+                    ? 'یہ لاگ محفوظ ہو کر پینڈنگ پروف لنکس لسٹ میں چلا جائے گا۔ جب ریکارڈنگ لنک آئے تو آپ کسی بھی وقت بٹن دبا کر لنک پیسٹ کر سکتے ہیں۔'
+                    : 'This log will enter the Pending Proof Links queue so you can paste the link at any time.'}
                 </p>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={openPendingProofModal}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+                  >
+                    <Link2 size={12} />
+                    <span>{isUrdu ? 'پینڈنگ ریکارڈنگز کی لسٹ کھولیں' : 'Open Pending Proofs List'}</span>
+                  </button>
+                </div>
               </motion.div>
             )}
 

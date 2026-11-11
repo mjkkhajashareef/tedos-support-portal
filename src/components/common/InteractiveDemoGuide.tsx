@@ -551,6 +551,11 @@ export const InteractiveDemoGuide: React.FC = () => {
                   ? "کونسے پیج پر کیا کام ہے، اسے کیسے استعمال کریں، اور فارم میں کیا کیا فل کرنا ہے؟" 
                   : "Step-by-step master walkthrough: What is on every screen and how to fill all forms."}
               </p>
+              <span className="text-[10px] text-amber-200/90 font-mono font-bold block mt-0.5">
+                {isUrdu
+                  ? 'تشکیل و ڈیزائن: محمد خواجہ شریف (COO, Techno Evident Pvt Ltd)'
+                  : 'Architected by: Mohammed Khaja Shareef (COO, Techno Evident Pvt Ltd)'}
+              </span>
             </div>
           </div>
 

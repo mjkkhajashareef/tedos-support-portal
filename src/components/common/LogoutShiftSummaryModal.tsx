@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   X,
@@ -20,7 +20,10 @@ import {
   ExternalLink,
   Zap,
   PhoneCall,
-  Sparkles
+  Sparkles,
+  RotateCcw,
+  Building2,
+  Briefcase
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -44,6 +47,29 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
   const [copied, setCopied] = useState(false);
   const [customNote, setCustomNote] = useState('');
 
+  // Helper to format live 12-hour IST time
+  const getNowFormattedTime = () => {
+    return new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  // State for Shift Close Time (dynamic and editable)
+  const [shiftCloseTime, setShiftCloseTime] = useState<string>(getNowFormattedTime);
+
+  // State for Reporting Hours (standard shift duration in hours and minutes)
+  const [reportingHours, setReportingHours] = useState<number>(8);
+  const [reportingMinutes, setReportingMinutes] = useState<number>(0);
+
+  // Automatically refresh shift close time to current live clock whenever modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setShiftCloseTime(getNowFormattedTime());
+    }
+  }, [isOpen]);
+
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
   const todayFormatted = useMemo(() => {
     return new Date().toLocaleDateString('en-GB', {
@@ -54,14 +80,9 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
     });
   }, []);
 
-  const nowTimeStr = useMemo(() => {
-    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
-  }, []);
-
   const execName = currentUser?.name || 'Support Executive';
   const execId = currentUser?.employeeId || '1000m00016';
   const execRole = currentUser?.role || 'Support Executive';
-  const execDept = (currentUser as any)?.department || 'Edsof / Philsof Technical Support';
 
   // Compute today's logs for this executive
   const myTodayLogs = useMemo(() => {
@@ -112,7 +133,23 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
     };
   }, [myTodayLogs]);
 
-  // Complete combined Shift Summary & Logout message for WhatsApp group
+  // Total Reporting vs Working hours computation
+  const totalReportingMinutes = reportingHours * 60 + reportingMinutes;
+  const reportingHoursStr = `${reportingHours}h ${reportingMinutes > 0 ? `${reportingMinutes}m` : '00m'}`;
+
+  const diffMinutes = totalReportingMinutes - stats.totalMinutes;
+  const diffHours = Math.floor(Math.abs(diffMinutes) / 60);
+  const diffMins = Math.abs(diffMinutes) % 60;
+  const bufferDurationStr =
+    diffMinutes >= 0
+      ? `${diffHours}h ${diffMins}m (Buffer / Transition / Notes)`
+      : `+${diffHours}h ${diffMins}m (Overtime)`;
+
+  const productivityRatio = Math.round(
+    (stats.totalMinutes / Math.max(1, totalReportingMinutes)) * 100
+  );
+
+  // Complete combined Shift Summary & Logout message for WhatsApp group (All clients listed, no truncation!)
   const fullSummaryMessage = useMemo(() => {
     let text = `📊 *[DAILY SUPPORT SUMMARY & LOGOUT / روزانہ سپورٹ رپورٹ و اختتام شفٹ]*\n`;
     text += `━━━━━━━━━━━━━━━━━━━━\n`;
@@ -120,12 +157,17 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
     text += `🆔 *TE-ID / ملازم کوڈ:* ${execId}\n`;
     text += `🏷️ *Role / عہدہ:* ${execRole}\n`;
     text += `📅 *Date / تاریخ:* ${todayFormatted}\n`;
-    text += `⏰ *Shift Close Time / وقت:* ${nowTimeStr}\n`;
+    text += `⏰ *Shift Close Time / اختتام وقت:* ${shiftCloseTime}\n`;
     text += `🌐 *Portal:* Techno Evident Operations ERP (Philsof)\n\n`;
 
-    text += `📈 *TODAY'S WORK OUTPUT / کارکردگی کا جائزہ:*\n`;
+    text += `⏱️ *HOURS BREAKDOWN / اوقات کار کا تفصیلی جائزہ:*\n`;
+    text += `• Total Reporting Hours (Shift) / کل حاضری وقت: ${reportingHoursStr} (${totalReportingMinutes} min)\n`;
+    text += `• Total Working Hours (Active) / کل کام کا دورانیہ: ${stats.durationStr} (${stats.totalMinutes} min)\n`;
+    text += `• Documentation & Transition / دفتری و فالو اپ وقت: ${bufferDurationStr}\n`;
+    text += `• Productivity Ratio / کارکردگی تناسب: ${productivityRatio}%\n\n`;
+
+    text += `📈 *TODAY'S WORK OUTPUT / مجموعی کارکردگی:*\n`;
     text += `• Total Calls Handled / کل کالز: ${stats.callsCount}\n`;
-    text += `• Total Duration / کل دورانیہ: ${stats.durationStr} (${stats.totalMinutes} min)\n`;
     text += `• Verified Proof Recordings / ریکارڈنگ لنکس: ${stats.verifiedCount} of ${stats.callsCount}\n`;
     if (stats.regularUsers > 0) text += `• باقاعدہ استعمال (Regular Users): ${stats.regularUsers}\n`;
     if (stats.needTraining > 0) text += `• ٹریننگ درکار (Need Training): ${stats.needTraining}\n`;
@@ -133,18 +175,18 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
     text += `\n`;
 
     if (myTodayLogs.length > 0) {
-      text += `📝 *CLIENT SESSIONS LOG / کالز کی تفصیل:*\n`;
-      myTodayLogs.slice(0, 10).forEach((l, idx) => {
+      text += `📝 *CLIENT SESSIONS LOG / کالز و اوقات کی مکمل تفصیل:*\n`;
+      // LIST ALL CLIENT SESSIONS WITHOUT TRUNCATION!
+      myTodayLogs.forEach((l, idx) => {
         const clientName = l.clientName || 'Client';
-        const dur = l.duration || `${l.durationMinutes || 0}m`;
+        const durFormatted = l.duration || `${l.durationMinutes || 0}m`;
+        const durMins = l.durationMinutes ? `${l.durationMinutes} min` : '';
+        const durDisplay = durMins ? `${durFormatted} (${durMins})` : durFormatted;
         const tag = l.softwareUsage ? ` [${l.softwareUsage}]` : '';
         const issue = l.category || l.issueCategory || l.workType || 'Support';
         const proof = l.proofLink ? `\n   🔗 Proof: ${l.proofLink}` : '';
-        text += `${idx + 1}. *${clientName}* (${dur})${tag}\n   - Issue: ${issue}${proof}\n`;
+        text += `${idx + 1}. *${clientName}* — ${durDisplay}${tag}\n   - Issue: ${issue}${proof}\n`;
       });
-      if (myTodayLogs.length > 10) {
-        text += `...اور مزید ${myTodayLogs.length - 10} کلائنٹ سیشنز درج ہیں۔\n`;
-      }
       text += `\n`;
     }
 
@@ -157,7 +199,20 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
     text += `✅ _Synced to Google Sheets & Server Archive via Philsof Support OS_`;
 
     return text;
-  }, [execName, execId, execRole, todayFormatted, nowTimeStr, stats, myTodayLogs, customNote]);
+  }, [
+    execName,
+    execId,
+    execRole,
+    todayFormatted,
+    shiftCloseTime,
+    reportingHoursStr,
+    totalReportingMinutes,
+    stats,
+    bufferDurationStr,
+    productivityRatio,
+    myTodayLogs,
+    customNote
+  ]);
 
   // Primary 1-Click: Copy summary, Open WhatsApp with pre-filled message, and Logout!
   const handleOneClickSendAndLogout = () => {
@@ -199,12 +254,12 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[94vh]"
       >
         {/* Header */}
         <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
@@ -216,7 +271,7 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
               <h2 className="text-base font-black flex items-center gap-2">
                 <span>
                   {isUrdu
-                    ? 'سافٹ ویئر لاگ آؤٹ اور واٹس ایپ گروپ سمری'
+                    ? 'سافٹ ویئر لاگ آؤٹ اور مکمل شفٹ سمری (واٹس ایپ)'
                     : 'Shift Summary & Logout for WhatsApp'}
                 </span>
                 <span className="text-[10px] bg-rose-500/30 text-rose-300 px-2 py-0.5 rounded-full font-mono font-bold">
@@ -225,8 +280,8 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
               </h2>
               <p className="text-xs text-slate-300">
                 {isUrdu
-                  ? 'ایک کلک میں سمری واٹس ایپ گروپ میں بھیجیں اور لاگ آؤٹ کریں'
-                  : 'Post complete work summary to WhatsApp group and sign off'}
+                  ? 'حاضری کے گھنٹے، کام کا کل وقت اور ہر کلائنٹ کی تفصیل واٹس ایپ گروپ میں بھیجیں'
+                  : 'Total Reporting Hours, Working Duration & Client-by-Client Breakdown for WhatsApp'}
               </p>
             </div>
           </div>
@@ -240,23 +295,158 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
 
         {/* Body */}
         <div className="p-4 sm:p-5 space-y-4 max-h-[75vh] overflow-y-auto text-xs flex-1">
-          {/* Quick Stats Strip */}
+          {/* Shift Time & Reporting Hours Settings Bar */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-[11px] font-black text-slate-800 dark:text-slate-100 flex items-center gap-1.5 uppercase font-mono">
+                <Clock size={13} className="text-blue-600" />
+                <span>
+                  {isUrdu
+                    ? 'شفٹ اوقات کار کی تصدیق (Shift Timing & Reporting Hours):'
+                    : 'Shift Timing & Reporting Hours:'}
+                </span>
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setShiftCloseTime(getNowFormattedTime())}
+                className="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-[11px] font-bold flex items-center gap-1 transition cursor-pointer"
+                title="Refresh Shift Close Time to Current Live Minute"
+              >
+                <RotateCcw size={11} />
+                <span>{isUrdu ? 'ابھی کا وقت لگائیں (Refresh to Now)' : 'Set Current Time'}</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Shift Close Time Input */}
+              <div>
+                <label className="text-[10px] font-mono text-slate-500 block mb-1">
+                  {isUrdu ? 'اختتام شفٹ کا وقت (Shift Close Time):' : 'Shift Close Time:'}
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={shiftCloseTime}
+                    onChange={(e) => setShiftCloseTime(e.target.value)}
+                    placeholder="06:30 PM"
+                    className="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Total Reporting Hours Selector */}
+              <div>
+                <label className="text-[10px] font-mono text-slate-500 block mb-1">
+                  {isUrdu ? 'کل حاضری / ڈیوٹی گھنٹے (Reporting Hours):' : 'Total Reporting Hours (Duty Shift):'}
+                </label>
+                <div className="flex items-center gap-1.5">
+                  {[8, 8.5, 9].map((hrs) => (
+                    <button
+                      key={hrs}
+                      type="button"
+                      onClick={() => {
+                        const h = Math.floor(hrs);
+                        const m = hrs % 1 !== 0 ? 30 : 0;
+                        setReportingHours(h);
+                        setReportingMinutes(m);
+                      }}
+                      className={`px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold transition cursor-pointer ${
+                        reportingHours === Math.floor(hrs) && reportingMinutes === (hrs % 1 !== 0 ? 30 : 0)
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {hrs}h
+                    </button>
+                  ))}
+                  <div className="flex items-center gap-1 flex-1">
+                    <input
+                      type="number"
+                      min={1}
+                      max={16}
+                      value={reportingHours}
+                      onChange={(e) => setReportingHours(Number(e.target.value) || 8)}
+                      className="w-14 p-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-center"
+                    />
+                    <span className="text-[10px] text-slate-400 font-mono">hrs</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Core Metric Cards Strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-center">
             <div>
-              <span className="text-[10px] font-mono text-slate-400 uppercase block">Calls Logged</span>
-              <span className="text-base sm:text-lg font-black text-blue-600">{stats.callsCount}</span>
+              <span className="text-[10px] font-mono text-slate-400 uppercase block">Reporting Hours</span>
+              <span className="text-base sm:text-lg font-black text-indigo-600">{reportingHoursStr}</span>
+              <span className="text-[9px] text-slate-400 font-mono block">({totalReportingMinutes} min)</span>
             </div>
             <div>
-              <span className="text-[10px] font-mono text-slate-400 uppercase block">Logged Time</span>
+              <span className="text-[10px] font-mono text-slate-400 uppercase block">Active Working</span>
               <span className="text-base sm:text-lg font-black text-emerald-600">{stats.durationStr}</span>
+              <span className="text-[9px] text-slate-400 font-mono block">({stats.totalMinutes} min)</span>
             </div>
             <div>
-              <span className="text-[10px] font-mono text-slate-400 uppercase block">Verified Proofs</span>
-              <span className="text-base sm:text-lg font-black text-purple-600">{stats.verifiedCount}</span>
+              <span className="text-[10px] font-mono text-slate-400 uppercase block">Productivity</span>
+              <span className="text-base sm:text-lg font-black text-purple-600">{productivityRatio}%</span>
+              <span className="text-[9px] text-slate-400 font-mono block">Ratio</span>
             </div>
             <div>
-              <span className="text-[10px] font-mono text-slate-400 uppercase block">Close Time</span>
-              <span className="text-base sm:text-lg font-black text-rose-600">{nowTimeStr}</span>
+              <span className="text-[10px] font-mono text-slate-400 uppercase block">Calls / Proofs</span>
+              <span className="text-base sm:text-lg font-black text-blue-600">{stats.callsCount}</span>
+              <span className="text-[9px] text-slate-400 font-mono block">({stats.verifiedCount} proofs)</span>
+            </div>
+          </div>
+
+          {/* Breakdown Table: Client By Client Work Time (All Clients Listed!) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono uppercase text-slate-400 font-bold flex items-center gap-1.5">
+                <Building2 size={12} className="text-blue-500" />
+                <span>
+                  {isUrdu
+                    ? `آج کے تمام کلائنٹس اور اوقات کی فہرست (${myTodayLogs.length} سیشنز):`
+                    : `Complete Client Breakdown (${myTodayLogs.length} Sessions Logged):`}
+                </span>
+              </span>
+              <span className="text-[10px] font-mono text-emerald-600 font-bold">
+                Total: {stats.durationStr}
+              </span>
+            </div>
+
+            <div className="max-h-40 overflow-y-auto rounded-2xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+              {myTodayLogs.length === 0 ? (
+                <div className="p-4 text-center text-slate-400 text-xs">
+                  {isUrdu ? 'آج کا کوئی ورک لاگ درج نہیں ہے۔' : 'No calls logged today.'}
+                </div>
+              ) : (
+                myTodayLogs.map((log, idx) => (
+                  <div key={log.id || idx} className="p-2.5 flex items-center justify-between text-xs hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center font-mono text-[10px] font-bold shrink-0">
+                        {idx + 1}
+                      </span>
+                      <div className="truncate">
+                        <span className="font-bold text-slate-800 dark:text-slate-100 block truncate">
+                          {log.clientName || 'Client'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 block">
+                          {log.category || log.issueCategory || 'Support'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0 font-mono font-bold text-emerald-600 ml-2">
+                      <span>{log.duration || `${log.durationMinutes || 0}m`}</span>
+                      <span className="text-[9px] text-slate-400 block font-normal">
+                        ({log.durationMinutes || 0} min)
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 

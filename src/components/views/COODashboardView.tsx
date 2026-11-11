@@ -247,13 +247,18 @@ export const COODashboardView: React.FC = () => {
               <ShieldAlert size={22} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-md-on-surface">
-                {isUrdu ? 'سی او او (COO) ایگزیکٹو آپریشنز ڈیش بورڈ' : 'COO Executive Operations Dashboard'}
-              </h1>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl font-bold text-md-on-surface">
+                  {isUrdu ? 'سی او او (COO) ایگزیکٹو آپریشنز ڈیش بورڈ' : 'COO Executive Operations Dashboard'}
+                </h1>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                  Mohammed Khaja Shareef (COO)
+                </span>
+              </div>
               <p className="text-xs text-md-outline">
                 {isUrdu 
-                  ? '7 گھنٹے کی کارکردگی کی نگرانی، TE پالیسی کا نفاذ اور سیشن ثبوتوں کی منظوری'
-                  : '7-Hour Productivity Monitoring, TE Policy Enforcement & Session Proof Approvals'}
+                  ? 'محمد خواجہ شریف (COO - Techno Evident Pvt Ltd) • آپریشنز نگرانی، TE پالیسی کا نفاذ اور سیشن منظوری'
+                  : 'Mohammed Khaja Shareef (COO, Techno Evident Pvt Ltd) • Operational Governance & Approval Control'}
               </p>
             </div>
           </div>

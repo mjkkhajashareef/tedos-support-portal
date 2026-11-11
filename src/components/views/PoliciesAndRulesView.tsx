@@ -408,7 +408,8 @@ Reference: TEDOS/HR/COMP/${new Date().getFullYear()}/${selectedRule.id}-${Math.f
 Date: ${incidentDate}
 To: ${execName} (ID: ${execId})
 Designation: Technical Support Executive
-Issued By: Office of the Chief Operating Officer (COO)
+Issued By: Office of the Chief Operating Officer (COO) - Mohammed Khaja Shareef
+Organization: Techno Evident Pvt. Ltd.
 
 *SUBJECT: OFFICIAL NOTICE - VIOLATION OF TE OPERATIONAL POLICY #${selectedRule.ruleNumber}*
 *موضوع: پالیسی رول نمبر ${selectedRule.ruleNumber} کی خلاف ورزی کا نوٹس*
@@ -435,7 +436,8 @@ All Technical Executives are bound by the 28 TEDOS Operational Standard Operatin
 آپ کو ہدایت کی جاتی ہے کہ فوری طور پر ریکارڈ درست کریں یا 12 گھنٹوں میں وضاحت پیش کریں۔ بار بار خلاف ورزی کی صورت میں تنخواہ میں کٹوتی اور تادیبی کارروائی کی جائے گی۔
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-_TEDOS Software Solutions - Internal Operations Compliance_`;
+✍️ *Authorized By:* Mohammed Khaja Shareef (Chief Operating Officer, Techno Evident Pvt. Ltd.)
+_Techno Evident Operations ERP - Internal Governance & Executive Office_`;
   }, [targetExecutive, selectedRule, violationType, incidentDate, incidentDetails]);
 
   const handleCopyNotice = () => {
