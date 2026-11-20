@@ -1,6 +1,7 @@
 import { Ticket, TicketStatus, TransitionHistoryEntry, User, UserRole } from '../types';
 import { can, Permission } from '../utils/rbac';
 import { AuthAudit } from '../utils/authAudit';
+import { getLocalDateString } from '../utils/helpers';
 
 // Simplified state machine
 const VALID_TRANSITIONS: Record<TicketStatus, TicketStatus[]> = {
@@ -52,7 +53,7 @@ export const TicketWorkflowService = {
       ...ticket,
       status: nextStatus,
       history: [...ticket.history, transitionEntry],
-      updatedDate: new Date().toISOString().split('T')[0],
+      updatedDate: getLocalDateString(),
       timeline: [
         ...ticket.timeline,
         {

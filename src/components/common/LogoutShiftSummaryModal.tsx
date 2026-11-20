@@ -25,7 +25,8 @@ import {
   Building2,
   Briefcase
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
+import { getLocalDateString, parseTimeToSeconds, isValidProofLink } from '../../utils/helpers';
 
 export const WHATSAPP_SUPPORT_GROUP_URL =
   'https://chat.whatsapp.com/FAkeCRc4ohi6YcgmIUACew?s=cl&p=a&mlu=4&ilr=4';
@@ -41,13 +42,13 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
   onClose,
   onConfirmLogout
 }) => {
-  const { currentUser, workLogs, language } = useApp();
+  const { currentUser, workLogs, language, activeTodayShift, endDailyShift } = useApp();
   const isUrdu = language === 'ur';
 
   const [copied, setCopied] = useState(false);
   const [customNote, setCustomNote] = useState('');
 
-  // Helper to format live 12-hour IST time
+  // Helper to format live 12-hour local time
   const getNowFormattedTime = () => {
     return new Date().toLocaleTimeString('en-US', {
       hour: '2-digit',
@@ -56,21 +57,51 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
     });
   };
 
-  // State for Shift Close Time (dynamic and editable)
+  // Shift Start / Close / Break states integrated with Shift Management
+  const [shiftStartTime, setShiftStartTime] = useState<string>(
+    () => activeTodayShift?.shiftStartTime || '10:00 AM'
+  );
   const [shiftCloseTime, setShiftCloseTime] = useState<string>(getNowFormattedTime);
+  const [breakMinutes, setBreakMinutes] = useState<number>(
+    () => activeTodayShift?.breakMinutes ?? 0
+  );
+  const [autoCloseShift, setAutoCloseShift] = useState<boolean>(true);
+  const [isManualReportingOverride, setIsManualReportingOverride] = useState<boolean>(false);
 
-  // State for Reporting Hours (standard shift duration in hours and minutes)
+  // State for Reporting Hours (computed from Shift Start -> Shift Close minus breaks, or manually set)
   const [reportingHours, setReportingHours] = useState<number>(8);
   const [reportingMinutes, setReportingMinutes] = useState<number>(0);
 
-  // Automatically refresh shift close time to current live clock whenever modal opens
+  // Refresh shift times from activeTodayShift + live clock whenever modal opens
   useEffect(() => {
     if (isOpen) {
+      if (activeTodayShift?.shiftStartTime) {
+        setShiftStartTime(activeTodayShift.shiftStartTime);
+      }
+      if (typeof activeTodayShift?.breakMinutes === 'number') {
+        setBreakMinutes(activeTodayShift.breakMinutes);
+      }
       setShiftCloseTime(getNowFormattedTime());
+      setIsManualReportingOverride(false);
     }
-  }, [isOpen]);
+  }, [isOpen, activeTodayShift]);
 
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  // Automatically calculate Net Reporting Hours from Shift Start -> Close minus breakMinutes
+  useEffect(() => {
+    if (isManualReportingOverride) return;
+    const startSecs = parseTimeToSeconds(shiftStartTime);
+    const endSecs = parseTimeToSeconds(shiftCloseTime);
+    if (startSecs > 0 || endSecs > 0) {
+      let diffSecs = endSecs - startSecs;
+      if (diffSecs < 0) diffSecs += 24 * 3600;
+      const grossMins = Math.max(0, Math.round(diffSecs / 60));
+      const netMins = Math.max(0, grossMins - (Number(breakMinutes) || 0));
+      setReportingHours(Math.floor(netMins / 60));
+      setReportingMinutes(netMins % 60);
+    }
+  }, [shiftStartTime, shiftCloseTime, breakMinutes, isManualReportingOverride]);
+
+  const todayStr = useMemo(() => getLocalDateString(), [isOpen]);
   const todayFormatted = useMemo(() => {
     return new Date().toLocaleDateString('en-GB', {
       weekday: 'long',
@@ -108,11 +139,7 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
 
     myTodayLogs.forEach((l) => {
       totalMinutes += l.durationMinutes || 0;
-      if (
-        l.proofLink &&
-        (l.proofLink.includes('meet.google.com') ||
-          l.proofLink.includes('drive.google.com'))
-      ) {
+      if (l.proofLink && isValidProofLink(l.proofLink)) {
         verifiedCount++;
       }
       if (l.softwareUsage === 'Regular User') regularUsers++;
@@ -157,11 +184,15 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
     text += `🆔 *TE-ID / ملازم کوڈ:* ${execId}\n`;
     text += `🏷️ *Role / عہدہ:* ${execRole}\n`;
     text += `📅 *Date / تاریخ:* ${todayFormatted}\n`;
+    text += `🟢 *Shift Start Time / آغاز وقت:* ${shiftStartTime}\n`;
     text += `⏰ *Shift Close Time / اختتام وقت:* ${shiftCloseTime}\n`;
+    if (breakMinutes > 0) {
+      text += `☕ *Break Time / وقفہ:* ${breakMinutes} min\n`;
+    }
     text += `🌐 *Portal:* Techno Evident Operations ERP (Philsof)\n\n`;
 
     text += `⏱️ *HOURS BREAKDOWN / اوقات کار کا تفصیلی جائزہ:*\n`;
-    text += `• Total Reporting Hours (Shift) / کل حاضری وقت: ${reportingHoursStr} (${totalReportingMinutes} min)\n`;
+    text += `• Net Reporting Hours (Shift) / کل حاضری وقت: ${reportingHoursStr} (${totalReportingMinutes} min)\n`;
     text += `• Total Working Hours (Active) / کل کام کا دورانیہ: ${stats.durationStr} (${stats.totalMinutes} min)\n`;
     text += `• Documentation & Transition / دفتری و فالو اپ وقت: ${bufferDurationStr}\n`;
     text += `• Productivity Ratio / کارکردگی تناسب: ${productivityRatio}%\n\n`;
@@ -204,7 +235,9 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
     execId,
     execRole,
     todayFormatted,
+    shiftStartTime,
     shiftCloseTime,
+    breakMinutes,
     reportingHoursStr,
     totalReportingMinutes,
     stats,
@@ -214,10 +247,31 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
     customNote
   ]);
 
-  // Primary 1-Click: Copy summary, Open WhatsApp with pre-filled message, and Logout!
+  const toHHMM24 = (timeStr: string): string => {
+    const secs = parseTimeToSeconds(timeStr);
+    if (!secs && !/00:00|12:00\s*am/i.test(timeStr)) return timeStr;
+    const h = Math.floor(secs / 3600) % 24;
+    const m = Math.floor((secs % 3600) / 60);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  };
+
+  const finalizeShiftIfEnabled = () => {
+    if (autoCloseShift && endDailyShift) {
+      endDailyShift(
+        activeTodayShift?.id,
+        toHHMM24(shiftCloseTime),
+        breakMinutes,
+        customNote.trim() || undefined,
+        toHHMM24(shiftStartTime)
+      );
+    }
+  };
+
+  // Primary 1-Click: Copy summary, Open WhatsApp with pre-filled message, finalize shift, and Logout!
   const handleOneClickSendAndLogout = () => {
     navigator.clipboard.writeText(fullSummaryMessage);
     setCopied(true);
+    finalizeShiftIfEnabled();
 
     const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(fullSummaryMessage)}`;
     window.open(waUrl, '_blank', 'noopener,noreferrer');
@@ -225,6 +279,11 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
     setTimeout(() => {
       onConfirmLogout();
     }, 500);
+  };
+
+  const handleDirectLogoutOnly = () => {
+    finalizeShiftIfEnabled();
+    onConfirmLogout();
   };
 
   // Send summary to WhatsApp without logging out (keep working)
@@ -305,74 +364,143 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
                     ? 'شفٹ اوقات کار کی تصدیق (Shift Timing & Reporting Hours):'
                     : 'Shift Timing & Reporting Hours:'}
                 </span>
+                {activeTodayShift && (
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/30">
+                    {isUrdu ? 'شفٹ سنکڈ' : 'SYNCED SHIFT'}
+                  </span>
+                )}
               </span>
 
-              <button
-                type="button"
-                onClick={() => setShiftCloseTime(getNowFormattedTime())}
-                className="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-[11px] font-bold flex items-center gap-1 transition cursor-pointer"
-                title="Refresh Shift Close Time to Current Live Minute"
-              >
-                <RotateCcw size={11} />
-                <span>{isUrdu ? 'ابھی کا وقت لگائیں (Refresh to Now)' : 'Set Current Time'}</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                {isManualReportingOverride && (
+                  <button
+                    type="button"
+                    onClick={() => setIsManualReportingOverride(false)}
+                    className="px-2 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold transition cursor-pointer"
+                  >
+                    {isUrdu ? 'شفٹ سے خودکار حساب' : 'Auto from Shift'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShiftCloseTime(getNowFormattedTime())}
+                  className="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 text-[11px] font-bold flex items-center gap-1 transition cursor-pointer"
+                  title="Refresh Shift Close Time to Current Live Minute"
+                >
+                  <RotateCcw size={11} />
+                  <span>{isUrdu ? 'ابھی کا وقت لگائیں (Refresh to Now)' : 'Set Current Time'}</span>
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Shift Start Time Input */}
+              <div>
+                <label className="text-[10px] font-mono text-slate-500 block mb-1">
+                  {isUrdu ? 'آغاز شفٹ (Shift Start):' : 'Shift Start Time:'}
+                </label>
+                <input
+                  type="text"
+                  value={shiftStartTime}
+                  onChange={(e) => setShiftStartTime(e.target.value)}
+                  placeholder="10:00 AM"
+                  className="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
               {/* Shift Close Time Input */}
               <div>
                 <label className="text-[10px] font-mono text-slate-500 block mb-1">
-                  {isUrdu ? 'اختتام شفٹ کا وقت (Shift Close Time):' : 'Shift Close Time:'}
+                  {isUrdu ? 'اختتام شفٹ (Shift Close):' : 'Shift Close Time:'}
                 </label>
-                <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={shiftCloseTime}
+                  onChange={(e) => setShiftCloseTime(e.target.value)}
+                  placeholder="06:30 PM"
+                  className="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Break Minutes Input */}
+              <div>
+                <label className="text-[10px] font-mono text-slate-500 block mb-1">
+                  {isUrdu ? 'وقفہ (Break Mins):' : 'Break Deduction (Mins):'}
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={240}
+                  value={breakMinutes}
+                  onChange={(e) => setBreakMinutes(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-slate-200/70 dark:border-slate-700/70">
+              {/* Total Reporting Hours Quick Presets & Manual Override */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] font-mono text-slate-500 mr-1">
+                  {isUrdu ? 'کل حاضری گھنٹے:' : 'Net Shift Hours:'}
+                </span>
+                {[8, 8.5, 9].map((hrs) => (
+                  <button
+                    key={hrs}
+                    type="button"
+                    onClick={() => {
+                      const h = Math.floor(hrs);
+                      const m = hrs % 1 !== 0 ? 30 : 0;
+                      setIsManualReportingOverride(true);
+                      setReportingHours(h);
+                      setReportingMinutes(m);
+                    }}
+                    className={`px-2 py-1 rounded-lg text-[11px] font-mono font-bold transition cursor-pointer ${
+                      reportingHours === Math.floor(hrs) && reportingMinutes === (hrs % 1 !== 0 ? 30 : 0)
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {hrs}h
+                  </button>
+                ))}
+                <div className="flex items-center gap-1">
                   <input
-                    type="text"
-                    value={shiftCloseTime}
-                    onChange={(e) => setShiftCloseTime(e.target.value)}
-                    placeholder="06:30 PM"
-                    className="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    type="number"
+                    min={0}
+                    max={16}
+                    value={reportingHours}
+                    onChange={(e) => {
+                      setIsManualReportingOverride(true);
+                      setReportingHours(Math.max(0, Number(e.target.value) || 0));
+                    }}
+                    className="w-12 p-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-[11px] font-mono font-bold text-center"
                   />
+                  <span className="text-[10px] text-slate-400 font-mono">h</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={59}
+                    value={reportingMinutes}
+                    onChange={(e) => {
+                      setIsManualReportingOverride(true);
+                      setReportingMinutes(Math.min(59, Math.max(0, Number(e.target.value) || 0)));
+                    }}
+                    className="w-12 p-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-[11px] font-mono font-bold text-center"
+                  />
+                  <span className="text-[10px] text-slate-400 font-mono">m</span>
                 </div>
               </div>
 
-              {/* Total Reporting Hours Selector */}
-              <div>
-                <label className="text-[10px] font-mono text-slate-500 block mb-1">
-                  {isUrdu ? 'کل حاضری / ڈیوٹی گھنٹے (Reporting Hours):' : 'Total Reporting Hours (Duty Shift):'}
-                </label>
-                <div className="flex items-center gap-1.5">
-                  {[8, 8.5, 9].map((hrs) => (
-                    <button
-                      key={hrs}
-                      type="button"
-                      onClick={() => {
-                        const h = Math.floor(hrs);
-                        const m = hrs % 1 !== 0 ? 30 : 0;
-                        setReportingHours(h);
-                        setReportingMinutes(m);
-                      }}
-                      className={`px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold transition cursor-pointer ${
-                        reportingHours === Math.floor(hrs) && reportingMinutes === (hrs % 1 !== 0 ? 30 : 0)
-                          ? 'bg-blue-600 text-white shadow-xs'
-                          : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      {hrs}h
-                    </button>
-                  ))}
-                  <div className="flex items-center gap-1 flex-1">
-                    <input
-                      type="number"
-                      min={1}
-                      max={16}
-                      value={reportingHours}
-                      onChange={(e) => setReportingHours(Number(e.target.value) || 8)}
-                      className="w-14 p-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-mono font-bold text-center"
-                    />
-                    <span className="text-[10px] text-slate-400 font-mono">hrs</span>
-                  </div>
-                </div>
-              </div>
+              <label className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-200 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={autoCloseShift}
+                  onChange={(e) => setAutoCloseShift(e.target.checked)}
+                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span>{isUrdu ? 'شفٹ ریکارڈ خودکار بند کریں' : 'Close today shift record on logout'}</span>
+              </label>
             </div>
           </div>
 
@@ -538,7 +666,7 @@ export const LogoutShiftSummaryModal: React.FC<LogoutShiftSummaryModalProps> = (
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
-              onClick={onConfirmLogout}
+              onClick={handleDirectLogoutOnly}
               className="px-3 py-2.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900 transition cursor-pointer w-full sm:w-auto"
               title="Logout directly without opening WhatsApp"
             >

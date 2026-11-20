@@ -17,8 +17,8 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { WorkLogEntry, UserRole } from '../../types';
-import { isValidProofLink } from '../../utils/helpers';
+import { WorkLogEntry } from '../../types';
+import { isValidProofLink, isLogPendingProof } from '../../utils/helpers';
 
 interface PendingProofLinksBannerProps {
   className?: string;
@@ -31,8 +31,6 @@ export const PendingProofLinksBanner: React.FC<PendingProofLinksBannerProps> = (
 }) => {
   const { workLogs, tickets, updateWorkLogProofLink, language, currentUser } = useApp();
   const isUrdu = language === 'ur';
-  const isSupportExecutive = currentUser?.role === UserRole.SUPPORT_EXECUTIVE;
-  const currentExecName = (currentUser?.name || '').trim().toLowerCase();
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [inputUrls, setInputUrls] = useState<Record<string, string>>({});
@@ -50,32 +48,9 @@ export const PendingProofLinksBanner: React.FC<PendingProofLinksBannerProps> = (
     }
   });
 
-  const pendingLogs = Array.from(combinedLogsMap.values()).filter((log) => {
-    if (successIds[log.id]) return false;
-    // If manager already approved or marked resolved, no longer pending
-    if (log.approvalStatus === 'Approved') return false;
-    if (log.proofLink && (log.proofLink.includes('Approved') || log.proofLink.includes('Done') || log.proofLink.includes('OK'))) return false;
-
-    // Support Executive data isolation: only show their own pending logs
-    if (isSupportExecutive && currentExecName) {
-      const logExec = (log.executiveName || (log as any).supportName || '').trim().toLowerCase();
-      if (!logExec.includes(currentExecName) && !currentExecName.includes(logExec)) {
-        return false;
-      }
-    }
-
-    const duration = Number(log.durationMinutes) || 0;
-    // Rule: Calls <= 10 minutes do not require proof and are automatically approved without pending status
-    if (duration <= 10) return false;
-
-    if (log.isProofPending === true) return true;
-    if (log.proofLink === 'PENDING') return true;
-    const hasValidProof = log.proofLink && isValidProofLink(log.proofLink);
-    if (!hasValidProof) {
-      return true;
-    }
-    return false;
-  });
+  const pendingLogs = Array.from(combinedLogsMap.values()).filter(
+    (log) => !successIds[log.id] && isLogPendingProof(log, currentUser)
+  );
 
   if (pendingLogs.length === 0) return null;
 
@@ -106,8 +81,8 @@ export const PendingProofLinksBanner: React.FC<PendingProofLinksBannerProps> = (
       setErrorMessages((prev) => ({
         ...prev,
         [log.id]: isUrdu
-          ? 'غلط لنک! لنک meet.google.com یا drive.google.com پر مشتمل ہونا چاہیے۔'
-          : 'Invalid link! Must be from meet.google.com or drive.google.com'
+          ? 'غلط لنک! درست ریکارڈنگ لنک (Google Meet، Drive، Zoom، Loom وغیرہ) درج کریں۔'
+          : 'Invalid link! Enter a valid Google Meet, Drive, Zoom, Loom, or web URL.'
       }));
       return;
     }

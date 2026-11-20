@@ -33,6 +33,7 @@ import { useApp } from '../../context/AppContext';
 import { ClientUsageBillingEntry, OFFICIAL_DEPARTMENTS, OfficialDepartment, ModuleId, UserRole } from '../../types';
 import { MaterialCard } from '../common/MaterialCard';
 import { motion, AnimatePresence } from 'motion/react';
+import { getLocalDateString, getLocalDateOffsetString } from '../../utils/helpers';
 
 const STORAGE_KEY = 'tedos_client_usage_billing_v1';
 
@@ -191,8 +192,8 @@ export const ClientUsageBillingView: React.FC<{ id?: string }> = ({ id }) => {
     billingFrequency: 'Yearly',
     amcAmount: 25000,
     paymentStatus: 'Paid',
-    lastPaymentDate: new Date().toISOString().split('T')[0],
-    nextRenewalDate: new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0],
+    lastPaymentDate: getLocalDateString(),
+    nextRenewalDate: getLocalDateOffsetString(365),
     operationsStatus: 'Active',
     activeModules: ['Fees', 'Attendance', 'Exams'],
     remarks: ''
@@ -274,8 +275,8 @@ export const ClientUsageBillingView: React.FC<{ id?: string }> = ({ id }) => {
       billingFrequency: 'Yearly',
       amcAmount: 25000,
       paymentStatus: 'Paid',
-      lastPaymentDate: new Date().toISOString().split('T')[0],
-      nextRenewalDate: new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0],
+      lastPaymentDate: getLocalDateString(),
+      nextRenewalDate: getLocalDateOffsetString(365),
       operationsStatus: 'Active',
       activeModules: ['Fees', 'Attendance'],
       remarks: ''
@@ -357,8 +358,8 @@ export const ClientUsageBillingView: React.FC<{ id?: string }> = ({ id }) => {
         billingFrequency: (p[6] as any) || 'Yearly',
         amcAmount: Number(p[7]) || 25000,
         paymentStatus: (p[8] as any) || 'Paid',
-        lastPaymentDate: p[9] || new Date().toISOString().split('T')[0],
-        nextRenewalDate: p[10] || new Date(Date.now() + 365 * 86400000).toISOString().split('T')[0],
+        lastPaymentDate: p[9] || getLocalDateString(),
+        nextRenewalDate: p[10] || getLocalDateOffsetString(365),
         operationsStatus: 'Active',
         activeModules: ['Core ERP'],
         softwareUrl: p[11] || '',

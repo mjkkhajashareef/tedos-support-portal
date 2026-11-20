@@ -4,6 +4,7 @@
  */
 
 import { InternalMessage, User, UserRole } from '../types';
+import { getLocalDateString } from './helpers';
 
 const STORAGE_KEY = 'tedos_internal_messages';
 
@@ -20,7 +21,7 @@ const INITIAL_MESSAGES: InternalMessage[] = [
     body: 'السلام علیکم تمام سپورٹ ٹیم ممبران! تمام کلائنٹس کے سافٹ ویئر پورٹل لنکس ڈائریکٹری اور ڈیلی ورک لاگ میں لائیو کر دیے گئے ہیں۔ کال یا میٹنگ لاگ کرتے وقت کلائنٹ سافٹ ویئر کا معائنہ لازمی کریں اور سیشن کے بعد شفٹ سمری واٹس ایپ گروپ میں شیئر کریں۔',
     priority: 'Important',
     timestamp: new Date(Date.now() - 3600000 * 4).toISOString(),
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
     time: '09:00',
     read: false,
     readBy: []
@@ -38,7 +39,7 @@ const INITIAL_MESSAGES: InternalMessage[] = [
     body: 'تمام ایگزیکٹوز توجہ فرمائیں: ہر کال کے دوران اگر 5 منٹ سے زیادہ سیشن ہو تو گوگل میٹ یا ڈرائیو ریکارڈنگ پروف لنک لازمی شامل کریں۔ اگر کوئی کلائنٹ رسپانس نہ دے تو دوبارہ فالو اپ شیڈول کریں اور لاگ آؤٹ کرتے وقت واٹس ایپ گروپ میں شفٹ سمری اور لاگ آؤٹ کا میسج ضرور بھیجیں۔',
     priority: 'Urgent',
     timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
     time: '11:15',
     read: false,
     readBy: []
@@ -100,7 +101,7 @@ export const messageService = {
       ...msg,
       id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       timestamp: new Date().toISOString(),
-      date: msg.date || new Date().toISOString().split('T')[0],
+      date: msg.date || getLocalDateString(),
       time: msg.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       read: false,
       readBy: []

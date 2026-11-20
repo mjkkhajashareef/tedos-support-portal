@@ -19,7 +19,8 @@ import {
   AlertTriangle,
   MessageSquare
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
+import { getLocalDateString } from '../../utils/helpers';
 
 interface WhatsAppSummaryModalProps {
   isOpen: boolean;
@@ -28,7 +29,7 @@ interface WhatsAppSummaryModalProps {
 
 export const WhatsAppSummaryModal: React.FC<WhatsAppSummaryModalProps> = ({ isOpen, onClose }) => {
   const { workLogs, currentUser, users } = useApp();
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
 
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [selectedExecutive, setSelectedExecutive] = useState<string>(currentUser?.name || 'All');

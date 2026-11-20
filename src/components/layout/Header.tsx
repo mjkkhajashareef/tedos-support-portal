@@ -28,7 +28,7 @@ import { LanguageToggle } from '../common/LanguageToggle';
 import { PWAInstallButton } from '../common/PWAInstallButton';
 import { TRANSLATIONS } from '../../i18n/translations';
 import { PendingProofLinksModal } from '../common/PendingProofLinksModal';
-import { isValidProofLink } from '../../utils/helpers';
+import { isLogPendingProof } from '../../utils/helpers';
 
 interface HeaderProps {
   id?: string;
@@ -79,12 +79,9 @@ export const Header: React.FC<HeaderProps> = ({ id }) => {
       combinedLogsMap.set(log.id, log);
     }
   });
-  const pendingProofLogsCount = Array.from(combinedLogsMap.values()).filter((log) => {
-    if (log.isProofPending === true) return true;
-    if (log.proofLink === 'PENDING') return true;
-    const hasValidProof = log.proofLink && isValidProofLink(log.proofLink);
-    return (log.durationMinutes || 0) > 5 && !hasValidProof;
-  }).length;
+  const pendingProofLogsCount = Array.from(combinedLogsMap.values()).filter((log) =>
+    isLogPendingProof(log, currentUser)
+  ).length;
 
   const unreadNotifications = notifications.filter((n) => !n.read);
 
@@ -118,8 +115,20 @@ export const Header: React.FC<HeaderProps> = ({ id }) => {
         return t.executiveWorkspace;
       case ModuleId.CLIENTS:
         return t.clients;
+      case ModuleId.MY_CLIENTS:
+        return language === 'ur' ? 'میرے تفویض کردہ کلائنٹس' : 'My Assigned Clients';
+      case ModuleId.CLIENT_ACTIVATION:
+        return t.activateClient;
+      case ModuleId.CLIENT_WORKSPACE:
+        return language === 'ur' ? 'کلائنٹ ورک اسپیس' : 'Client Workspace';
+      case ModuleId.TICKETS:
+        return t.ticketCenter;
       case ModuleId.DAILY_WORK_LOG:
         return t.dailyWorkLog;
+      case ModuleId.SHIFT_MANAGEMENT:
+        return t.shiftManagement;
+      case ModuleId.WORK_LOG_HISTORY:
+        return language === 'ur' ? 'ورک لاگ ہسٹری و کمانڈ' : 'Work Log History & Command Center';
       case ModuleId.OVER_SERVICE:
         return language === 'ur' ? 'اوور سروس (DLT • Payment • WhatsApp)' : 'Over Service (DLT • Payment • WhatsApp)';
       case ModuleId.FOLLOW_UP:
@@ -128,14 +137,23 @@ export const Header: React.FC<HeaderProps> = ({ id }) => {
         return t.trainingResources;
       case ModuleId.WHATSAPP:
         return t.whatsappAutomation;
+      case ModuleId.PAYROLL:
+        return language === 'ur' ? 'پے رول و حاضری پورٹل' : 'Payroll & Attendance';
       case ModuleId.REPORTS:
         return t.reportsAnalytics;
       case ModuleId.NOTIFICATIONS:
+      case ModuleId.EXECUTIVE_INBOX:
         return t.notifications;
       case ModuleId.AI_ASSISTANT:
         return t.aiAssistant;
+      case ModuleId.AI_MESSAGE_STUDIO:
+        return language === 'ur' ? 'اے آئی پالش و ریڈی میڈ میسج' : 'AI Polish & Messages';
       case ModuleId.USER_MANAGEMENT:
         return t.userManagement;
+      case ModuleId.ROLE_MANAGEMENT:
+        return language === 'ur' ? 'رول و پرمیشن مینیجمنٹ' : 'Rule Management';
+      case ModuleId.CLIENT_USAGE_BILLING:
+        return language === 'ur' ? 'کلائنٹ تفصیلات، بلنگ و استعمال' : 'Client Details & Usage (Billing)';
       case ModuleId.SETTINGS:
         return t.systemSettings;
       case ModuleId.LOGIN:

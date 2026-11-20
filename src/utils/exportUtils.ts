@@ -7,6 +7,7 @@
  */
 
 import { WorkLogEntry, Ticket, SupportClient, FollowUpTracker, User } from '../types';
+import { getLocalDateString } from './helpers';
 
 /**
  * Trigger browser file download
@@ -77,7 +78,7 @@ export function exportWorkLogsToCSV(workLogs: WorkLogEntry[], filenamePrefix: st
   }));
 
   const csv = convertToCSV(headers, formattedRows);
-  const dateStr = new Date().toISOString().split('T')[0];
+  const dateStr = getLocalDateString();
   downloadFile(csv, `${filenamePrefix}_${dateStr}.csv`);
 }
 
@@ -112,7 +113,7 @@ export function exportTicketsToCSV(tickets: Ticket[], filenamePrefix: string = '
   }));
 
   const csv = convertToCSV(headers, formattedRows);
-  const dateStr = new Date().toISOString().split('T')[0];
+  const dateStr = getLocalDateString();
   downloadFile(csv, `${filenamePrefix}_${dateStr}.csv`);
 }
 
@@ -145,7 +146,7 @@ export function exportClientsToCSV(clients: SupportClient[], filenamePrefix: str
   }));
 
   const csv = convertToCSV(headers, formattedRows);
-  const dateStr = new Date().toISOString().split('T')[0];
+  const dateStr = getLocalDateString();
   downloadFile(csv, `${filenamePrefix}_${dateStr}.csv`);
 }
 
@@ -174,7 +175,7 @@ export function exportFollowUpsToCSV(followUps: FollowUpTracker[], filenamePrefi
   }));
 
   const csv = convertToCSV(headers, formattedRows);
-  const dateStr = new Date().toISOString().split('T')[0];
+  const dateStr = getLocalDateString();
   downloadFile(csv, `${filenamePrefix}_${dateStr}.csv`);
 }
 
@@ -361,7 +362,7 @@ export function exportFullSystemJSON(data: {
   };
 
   const jsonStr = JSON.stringify(payload, null, 2);
-  const dateStr = new Date().toISOString().split('T')[0];
+  const dateStr = getLocalDateString();
   downloadFile(jsonStr, `TEDOS_FULL_BACKUP_${dateStr}.json`, 'application/json;charset=utf-8;');
 }
 

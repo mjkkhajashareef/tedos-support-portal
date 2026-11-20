@@ -29,7 +29,7 @@ import {
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { isValidProofLink } from '../../utils/helpers';
+import { isValidProofLink, getLocalDateString, getLocalDateOffsetString } from '../../utils/helpers';
 
 interface WorkLogHistoryViewProps {
   id?: string;
@@ -88,14 +88,9 @@ export const WorkLogHistoryView: React.FC<WorkLogHistoryViewProps> = ({ id }) =>
   const [isSavingRemark, setIsSavingRemark] = useState(false);
   const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-  const weekAgo = new Date();
-  weekAgo.setDate(weekAgo.getDate() - 7);
-  const weekAgoStr = weekAgo.toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
+  const yesterdayStr = getLocalDateOffsetString(-1);
+  const weekAgoStr = getLocalDateOffsetString(-7);
 
   const executivesList = useMemo(() => {
     if (isSupportExecutive) {
@@ -212,14 +207,16 @@ export const WorkLogHistoryView: React.FC<WorkLogHistoryViewProps> = ({ id }) =>
       l.nextFollowUpDate || ''
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.setAttribute('href', url);
     link.setAttribute('download', `TEDOS_Work_Logs_${todayStr}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handlePrint = () => {
@@ -245,7 +242,7 @@ export const WorkLogHistoryView: React.FC<WorkLogHistoryViewProps> = ({ id }) =>
                       : `My Work Log History (${currentUser?.name})`
                     : isUrdu
                     ? 'سپورٹ ٹیم ورک لاگ ہسٹری (Support Team Log History)'
-                    : 'Support Team Work Log History (Umar, Farman, Haneef, Sumayya, Asad)'}
+                    : 'Support Team Work Log History (Umar, Farman, Haneef, Sumayya)'}
                 </h1>
                 <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300">
                   {filteredLogs.length} {isUrdu ? 'ریکارڈز' : 'Entries'}

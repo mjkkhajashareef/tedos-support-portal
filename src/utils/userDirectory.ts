@@ -57,7 +57,7 @@ export const MASTER_DIRECTOR_USER: User = {
   joiningDate: '2023-01-01',
   lastLogin: new Date().toISOString(),
   active: true,
-  password: 'Technolive@22',
+  password: '',
   aliases: ['azhaer@philsof.com', 'support@philsof.com', 'admin@philsof.com', 'director@technoevident.com', 'techno admin'],
   baseSalary: 120000,
   monthlyIncentive: 15000
@@ -79,7 +79,7 @@ export const MASTER_COO_USER: User = {
   joiningDate: '2023-02-01',
   lastLogin: new Date().toISOString(),
   active: true,
-  password: 'Technolive@22',
+  password: '',
   aliases: ['coo@philsof.com', 'coo@technoevident.com', 'khaja shareef', 'shareef'],
   baseSalary: 25000,
   monthlyIncentive: 2000
@@ -299,17 +299,30 @@ export const syncUsersWithServer = async (): Promise<User[]> => {
 /**
  * Persists user update to backend server (/api/users/:id)
  */
-export const persistUserToServer = async (user: User): Promise<void> => {
+export const persistUserToServer = async (user: User): Promise<User | null> => {
   try {
     const targetId = encodeURIComponent(user.id || user.employeeId);
-    await fetch(`/api/users/${targetId}`, {
+    const res = await fetch(`/api/users/${targetId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(user)
     });
+    if (res.ok) {
+      const data = await res.json();
+      return data?.user || user;
+    }
+    const postRes = await fetch('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(user)
+    });
+    if (postRes.ok) {
+      return user;
+    }
   } catch (e) {
     console.warn('[userDirectory] Failed to persist user to server:', e);
   }
+  return null;
 };
 
 /**
@@ -395,13 +408,8 @@ export const authenticateUser = (
   const cleanDigits = cleanId.replace(/[^0-9]/g, '');
   const cleanMobile = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : '';
 
-  // Explicit pinned credentials map requested by organization
+  // Role-level local fallback credentials for field staff (Director/COO verified authoritatively via server env)
   const PINNED_PASSWORDS: Record<string, string> = {
-    'azhaer@philsof.com': 'Technolive@22',
-    'support@philsof.com': 'Technolive@22',
-    'admin@philsof.com': 'Technolive@22',
-    'coo@philsof.com': 'Technolive@22',
-    'coo@technoevident.com': 'Technolive@22',
     'manager@philsof.com': 'manager@22',
     'manager@technoevident.com': 'manager@22',
     'supportmanager@technoevident.com': 'manager@22',
@@ -498,17 +506,16 @@ export const authenticateUser = (
   const userEmail = matchedUser.email.toLowerCase();
   const expectedPinnedPass = PINNED_PASSWORDS[userEmail] || PINNED_PASSWORDS[cleanId] || PINNED_PASSWORDS[cleanIdNormalized];
   const userPassword = (matchedUser.password || '').trim();
-  const matchesDirect = userPassword === cleanPass || userPassword.toLowerCase() === cleanPass.toLowerCase();
-  const matchesPinned = Boolean(expectedPinnedPass && (cleanPass === expectedPinnedPass || cleanPass.toLowerCase() === expectedPinnedPass.toLowerCase()));
-  const matchesStandardPass = cleanPass === 'Technolive@22' || cleanPass === 'Technolove@22' || cleanPass === 'Admin@123' || cleanPass === 'admin123';
-  const matchesRolePass =
-    (matchedUser.role === UserRole.DIRECTOR && (cleanPass === 'Technolive@22' || cleanPass === 'Technolove@22')) ||
-    (matchedUser.role === UserRole.COO && (cleanPass === 'Technolive@22' || cleanPass === 'Technolove@22')) ||
-    (matchedUser.role === UserRole.SUPPORT_MANAGER && (cleanPass === 'manager@22' || cleanPass === 'Technolive@22')) ||
-    (matchedUser.role === UserRole.OPERATION_MANAGER && (cleanPass === 'operation@22' || cleanPass === 'Technolive@22')) ||
-    (matchedUser.role === UserRole.SUPPORT_EXECUTIVE && (cleanPass === 'umar@22' || cleanPass === 'farman@22' || cleanPass === 'haneef@22' || cleanPass === 'sumayya@22'));
+  const hasExplicitStoredPassword = userPassword.length > 0;
+  const matchesDirect = hasExplicitStoredPassword && (userPassword === cleanPass || userPassword.toLowerCase() === cleanPass.toLowerCase());
+  const matchesPinned = !hasExplicitStoredPassword && Boolean(expectedPinnedPass && (cleanPass === expectedPinnedPass || cleanPass.toLowerCase() === expectedPinnedPass.toLowerCase()));
+  const matchesRolePass = !hasExplicitStoredPassword && (
+    (matchedUser.role === UserRole.SUPPORT_MANAGER && cleanPass === 'manager@22') ||
+    (matchedUser.role === UserRole.OPERATION_MANAGER && cleanPass === 'operation@22') ||
+    (matchedUser.role === UserRole.SUPPORT_EXECUTIVE && (cleanPass === 'umar@22' || cleanPass === 'farman@22' || cleanPass === 'haneef@22' || cleanPass === 'sumayya@22'))
+  );
 
-  if (matchesPinned || matchesDirect || matchesStandardPass || matchesRolePass) {
+  if (matchesDirect || matchesPinned || matchesRolePass) {
     matchedUser.lastLogin = new Date().toISOString();
     saveStoredUsers(allUsers.map(u => (u.id === matchedUser.id ? matchedUser : u)));
 

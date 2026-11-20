@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { WorkLogEntry, UserRole } from '../../types';
-import { isValidProofLink } from '../../utils/helpers';
+import { isValidProofLink, isLogPendingProof } from '../../utils/helpers';
 
 interface PendingProofLinksModalProps {
   isOpen: boolean;
@@ -74,35 +74,10 @@ export const PendingProofLinksModal: React.FC<PendingProofLinksModalProps> = ({
   });
 
   const allLogs = Array.from(combinedLogsMap.values());
-  const isSupportExecutive = currentUser?.role === UserRole.SUPPORT_EXECUTIVE;
-  const currentExecName = (currentUser?.name || '').trim().toLowerCase();
 
-  const pendingLogs = allLogs.filter((log) => {
-    if (successIds[log.id]) return false;
-    // If approved by manager, it is no longer pending
-    if (log.approvalStatus === 'Approved') return false;
-    if (log.proofLink && (log.proofLink.includes('Approved') || log.proofLink.includes('Done') || log.proofLink.includes('OK'))) return false;
-
-    // Role Isolation: Support executive only sees their own pending logs
-    if (isSupportExecutive && currentExecName) {
-      const logExec = (log.executiveName || (log as any).supportName || '').trim().toLowerCase();
-      if (!logExec.includes(currentExecName) && !currentExecName.includes(logExec)) {
-        return false;
-      }
-    }
-
-    const duration = Number(log.durationMinutes) || 0;
-    // Calls <= 10 minutes do not require proof and are automatically approved without pending status
-    if (duration <= 10) return false;
-
-    if (log.isProofPending === true) return true;
-    if (log.proofLink === 'PENDING') return true;
-    const hasValidProof = log.proofLink && isValidProofLink(log.proofLink);
-    if (!hasValidProof) {
-      return true;
-    }
-    return false;
-  });
+  const pendingLogs = allLogs.filter(
+    (log) => !successIds[log.id] && isLogPendingProof(log, currentUser)
+  );
 
   // Filter by search query
   const filteredLogs = pendingLogs.filter((log) => {
@@ -143,8 +118,8 @@ export const PendingProofLinksModal: React.FC<PendingProofLinksModalProps> = ({
       setErrorMessages((prev) => ({
         ...prev,
         [log.id]: isUrdu
-          ? 'غلط لنک! لنک meet.google.com یا drive.google.com پر مشتمل ہونا چاہیے۔'
-          : 'Invalid link! URL must be from meet.google.com or drive.google.com'
+          ? 'غلط لنک! درست ریکارڈنگ لنک (Google Meet، Drive، Zoom، Loom وغیرہ) درج کریں۔'
+          : 'Invalid link! Enter a valid Google Meet, Drive, Zoom, Loom, or web URL.'
       }));
       return;
     }

@@ -31,7 +31,8 @@ import {
   SlidersHorizontal,
   CheckCircle2,
   Globe,
-  Receipt
+  Receipt,
+  Clock
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -62,6 +63,7 @@ const MODULE_ICON_MAP: Record<ModuleId, React.ComponentType<{ size?: number; cla
   [ModuleId.PAYROLL]: Briefcase,
   [ModuleId.AI_MESSAGE_STUDIO]: Sparkles,
   [ModuleId.CLIENT_USAGE_BILLING]: Receipt,
+  [ModuleId.SHIFT_MANAGEMENT]: Clock,
 };
 
 const MODULE_THEME_MAP: Record<ModuleId, { bg: string; text: string; border: string; hover: string; gradient: string }> = {
@@ -246,6 +248,13 @@ const MODULE_THEME_MAP: Record<ModuleId, { bg: string; text: string; border: str
     border: 'border-emerald-500/30',
     hover: 'hover:border-emerald-500 hover:shadow-emerald-500/10',
     gradient: 'from-emerald-600 to-teal-700'
+  },
+  [ModuleId.SHIFT_MANAGEMENT]: {
+    bg: 'bg-indigo-500/10 dark:bg-indigo-500/15',
+    text: 'text-indigo-600 dark:text-indigo-400',
+    border: 'border-indigo-500/30',
+    hover: 'hover:border-indigo-500 hover:shadow-indigo-500/10',
+    gradient: 'from-indigo-600 to-blue-600'
   }
 };
 
@@ -353,6 +362,10 @@ const MODULE_DESCRIPTIONS: Record<ModuleId, { en: string; ur: string }> = {
   [ModuleId.CLIENT_USAGE_BILLING]: {
     en: 'Client usage metrics, cloud storage GB, annual AMC & renewal billing',
     ur: 'کلائنٹ تفصیلات، کلاؤڈ اسٹوریج، سالانہ AMC اور تجدید بلنگ'
+  },
+  [ModuleId.SHIFT_MANAGEMENT]: {
+    en: 'Record daily shift start & end times, breaks, and live work log reconciliation',
+    ur: 'روزانہ شفٹ کے آغاز و اختتام، وقفہ اور ورک لاگ موازنہ کا مکمل نظام'
   }
 };
 

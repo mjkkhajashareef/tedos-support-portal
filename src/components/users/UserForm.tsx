@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { UserCreate } from '../../types';
+import { getLocalDateString } from '../../utils/helpers';
 
 export const UserForm = ({ onSubmit, onCancel, initialData }: { onSubmit: (data: UserCreate) => void;  onCancel: () => void; 
   initialData?: UserCreate 
 }) => {
   const [formData, setFormData] = useState<UserCreate>(initialData || {
-    employeeId: '', name: '', designation: '', email: '', mobile: '', role: 'Support Executive', department: '', reportingManager: '', assignedRegion: '', joiningDate: new Date().toISOString().split('T')[0]
+    employeeId: '', name: '', designation: '', email: '', mobile: '', role: 'Support Executive', department: '', reportingManager: '', assignedRegion: '', joiningDate: getLocalDateString()
   });
   const [loading, setLoading] = useState(false);
 

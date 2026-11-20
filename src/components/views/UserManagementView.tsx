@@ -34,7 +34,7 @@ import { useApp } from '../../context/AppContext';
 import { User, UserRole, UserStatus, UserCreate, ModuleId, OFFICIAL_DEPARTMENTS } from '../../types';
 import { MaterialCard } from '../common/MaterialCard';
 import { motion, AnimatePresence } from 'motion/react';
-import { extractWebUrl } from '../../utils/helpers';
+import { extractWebUrl, getLocalDateString } from '../../utils/helpers';
 
 export const UserManagementView: React.FC<{ id?: string }> = ({ id }) => {
   const {
@@ -105,7 +105,7 @@ export const UserManagementView: React.FC<{ id?: string }> = ({ id }) => {
     department: 'Customer Support',
     reportingManager: 'Support Manager',
     assignedRegion: 'All India',
-    joiningDate: new Date().toISOString().split('T')[0],
+    joiningDate: getLocalDateString(),
     password: '',
     baseSalary: 22000,
     monthlyIncentive: 2500,
@@ -362,7 +362,7 @@ export const UserManagementView: React.FC<{ id?: string }> = ({ id }) => {
       department: 'Customer Support',
       reportingManager: 'Support Manager',
       assignedRegion: 'All India',
-      joiningDate: new Date().toISOString().split('T')[0],
+      joiningDate: getLocalDateString(),
       password: 'Admin@123',
       baseSalary: 22000,
       monthlyIncentive: 2500,
@@ -387,7 +387,7 @@ export const UserManagementView: React.FC<{ id?: string }> = ({ id }) => {
       department: user.department || 'Customer Support',
       reportingManager: user.reportingManager || 'Support Manager',
       assignedRegion: user.assignedRegion || 'All India',
-      joiningDate: user.joiningDate || new Date().toISOString().split('T')[0],
+      joiningDate: user.joiningDate || getLocalDateString(),
       password: user.password || 'Admin@123',
       baseSalary: user.baseSalary || 22000,
       monthlyIncentive: user.monthlyIncentive || 2500,

@@ -22,7 +22,8 @@ import {
   Building,
   PhoneCall
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
+import { formatTimeHHMM } from '../../utils/helpers';
 
 export const WHATSAPP_SUPPORT_GROUP_URL =
   'https://chat.whatsapp.com/FAkeCRc4ohi6YcgmIUACew?s=cl&p=a&mlu=4&ilr=4';
@@ -36,7 +37,7 @@ export const WhatsAppLoginStatusModal: React.FC<WhatsAppLoginStatusModalProps> =
   isOpen,
   onClose
 }) => {
-  const { currentUser, language } = useApp();
+  const { currentUser, language, activeTodayShift, startDailyShift } = useApp();
   const isUrdu = language === 'ur';
 
   const [copied, setCopied] = useState(false);
@@ -47,7 +48,8 @@ export const WhatsAppLoginStatusModal: React.FC<WhatsAppLoginStatusModalProps> =
     if (isOpen) {
       const now = new Date();
       setCurrentTime(
-        now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+        activeTodayShift?.shiftStartTime ||
+          now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
       );
       setCurrentDate(
         now.toLocaleDateString('en-GB', {
@@ -58,7 +60,7 @@ export const WhatsAppLoginStatusModal: React.FC<WhatsAppLoginStatusModalProps> =
         })
       );
     }
-  }, [isOpen]);
+  }, [isOpen, activeTodayShift]);
 
   const execName = currentUser?.name || 'Support Executive';
   const execId = currentUser?.employeeId || '1000m00016';
@@ -74,7 +76,7 @@ export const WhatsAppLoginStatusModal: React.FC<WhatsAppLoginStatusModalProps> =
     msg += `🏷️ *Role / عہدہ:* ${execRole}\n`;
     msg += `🏢 *Department / شعبہ:* ${execDept}\n`;
     msg += `📅 *Date / تاریخ:* ${currentDate || 'Today'}\n`;
-    msg += `⏰ *Login Time / وقت:* ${currentTime || 'Online'}\n`;
+    msg += `⏰ *Shift Start / Login Time / وقت:* ${currentTime || 'Online'}\n`;
     msg += `🌐 *Portal:* Techno Evident Operations ERP (Philsof)\n`;
     if (currentUser?.mobile) {
       msg += `📱 *Contact:* ${currentUser.mobile}\n`;
@@ -85,8 +87,15 @@ export const WhatsAppLoginStatusModal: React.FC<WhatsAppLoginStatusModalProps> =
     return msg;
   }, [execName, execId, execRole, execDept, currentDate, currentTime, currentUser?.mobile]);
 
-  // 1-Click: Copy to clipboard and open WhatsApp with pre-filled message
+  const ensureShiftStarted = () => {
+    if (!activeTodayShift && startDailyShift) {
+      startDailyShift(formatTimeHHMM());
+    }
+  };
+
+  // 1-Click: Start Shift (if needed), Copy to clipboard, and open WhatsApp with pre-filled message
   const handleOneClickSendToWhatsApp = () => {
+    ensureShiftStarted();
     navigator.clipboard.writeText(statusMessage);
     setCopied(true);
     setTimeout(() => setCopied(false), 3500);
@@ -97,6 +106,7 @@ export const WhatsAppLoginStatusModal: React.FC<WhatsAppLoginStatusModalProps> =
 
   // Open direct group link (message copied so user can paste immediately)
   const handleOpenGroupDirectly = () => {
+    ensureShiftStarted();
     navigator.clipboard.writeText(statusMessage);
     setCopied(true);
     setTimeout(() => setCopied(false), 3500);
@@ -186,12 +196,20 @@ export const WhatsAppLoginStatusModal: React.FC<WhatsAppLoginStatusModalProps> =
               <span className="font-mono font-bold text-emerald-600 truncate block">{execId}</span>
             </div>
             <div className="bg-slate-50 dark:bg-slate-800/60 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="text-[10px] text-slate-400 block font-mono">LOGIN TIME</span>
+              <span className="text-[10px] text-slate-400 block font-mono">SHIFT START</span>
               <span className="font-mono font-bold text-blue-600 truncate block">{currentTime}</span>
             </div>
             <div className="bg-slate-50 dark:bg-slate-800/60 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="text-[10px] text-slate-400 block font-mono">STATUS</span>
-              <span className="font-bold text-emerald-600 truncate block">🟢 Online</span>
+              <span className="text-[10px] text-slate-400 block font-mono">SHIFT STATUS</span>
+              <span className="font-bold text-emerald-600 truncate block">
+                {activeTodayShift
+                  ? isUrdu
+                    ? `🟢 شروع (${activeTodayShift.shiftStartTime})`
+                    : `🟢 Started (${activeTodayShift.shiftStartTime})`
+                  : isUrdu
+                  ? '⚡ چیک ان پر خودکار شروع'
+                  : '⚡ Auto-starts on Check-in'}
+              </span>
             </div>
           </div>
 
@@ -260,13 +278,17 @@ export const WhatsAppLoginStatusModal: React.FC<WhatsAppLoginStatusModalProps> =
             type="button"
             onClick={handleOneClickSendToWhatsApp}
             className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 transition cursor-pointer"
-            title="Open WhatsApp with pre-filled message and copy to clipboard"
+            title="Start daily shift and open WhatsApp with pre-filled attendance message"
           >
             <Zap size={15} className="text-yellow-300 animate-pulse fill-yellow-300" />
             <span>
-              {isUrdu
-                ? '⚡ 1-کلک میں واٹس ایپ پر بھیجیں'
-                : '⚡ 1-Click Send to WhatsApp'}
+              {activeTodayShift
+                ? isUrdu
+                  ? '⚡ 1-کلک میں واٹس ایپ پر بھیجیں'
+                  : '⚡ 1-Click Send to WhatsApp'
+                : isUrdu
+                ? '⚡ شفٹ شروع کریں اور واٹس ایپ بھیجیں'
+                : '⚡ Start Shift & Post Attendance'}
             </span>
           </button>
         </div>

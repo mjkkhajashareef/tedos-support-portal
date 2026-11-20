@@ -6,6 +6,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { MaterialCard } from '../common/MaterialCard';
+import { getLocalDateString } from '../../utils/helpers';
 import {
   BookOpen,
   FileWarning,
@@ -368,7 +369,7 @@ export const PoliciesAndRulesView: React.FC = () => {
   const [selectedExecutiveId, setSelectedExecutiveId] = useState<string>(users[0]?.id || '');
   const [selectedRuleId, setSelectedRuleId] = useState<string>('P09');
   const [violationType, setViolationType] = useState<'First Written Warning' | 'Second Warning with Fine' | 'Half-Day Deduction' | 'Final Show Cause Notice'>('First Written Warning');
-  const [incidentDate, setIncidentDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [incidentDate, setIncidentDate] = useState<string>(getLocalDateString());
   const [incidentDetails, setIncidentDetails] = useState<string>('Work log exceeded 5 minutes without required Google Drive/Meet proof link.');
   const [copiedNotice, setCopiedNotice] = useState(false);
 

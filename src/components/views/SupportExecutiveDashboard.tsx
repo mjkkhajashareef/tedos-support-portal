@@ -28,7 +28,7 @@ import {
 import { TicketStatus, ModuleId, WorkLogEntry } from '../../types';
 import { PendingProofLinksBanner } from '../common/PendingProofLinksBanner';
 import { QuickLinksGrid } from '../common/QuickLinksGrid';
-import { isValidProofLink } from '../../utils/helpers';
+import { isValidProofLink, isLogPendingProof } from '../../utils/helpers';
 
 export const SupportExecutiveDashboard: React.FC = () => {
   const {
@@ -103,10 +103,7 @@ export const SupportExecutiveDashboard: React.FC = () => {
     const logExec = (log.executiveName || (log as any).supportName || '').trim().toLowerCase();
     const isMine = logExec === myName || (firstToken && logExec.includes(firstToken)) || myClientIds.has(log.clientId);
     if (!isMine) return false;
-    if (log.isProofPending === true) return true;
-    if (log.proofLink === 'PENDING') return true;
-    const hasValidProof = log.proofLink && isValidProofLink(log.proofLink);
-    return (log.durationMinutes || 0) > 5 && !hasValidProof;
+    return isLogPendingProof(log, currentUser);
   });
 
   const handleSaveProofInline = async (log: WorkLogEntry) => {
@@ -123,8 +120,8 @@ export const SupportExecutiveDashboard: React.FC = () => {
       setErrorMessages((prev) => ({
         ...prev,
         [log.id]: isUrdu
-          ? 'غلط لنک! meet.google.com یا drive.google.com کا لنک دیں۔'
-          : 'Must be from meet.google.com or drive.google.com'
+          ? 'غلط لنک! درست ریکارڈنگ لنک (Google Meet، Drive، Zoom، Loom وغیرہ) درج کریں۔'
+          : 'Invalid link! Enter a valid Google Meet, Drive, Zoom, Loom, or web URL.'
       }));
       return;
     }

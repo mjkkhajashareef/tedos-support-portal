@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @font-face {
   font-family: 'Jameel Noori Nastaleeq';
@@ -140,11 +141,10 @@ html[lang="ur"] p {
   font-family: var(--font-nastaleeq), var(--font-sans);
 }
 
-/* Dropdown styling: Black text, clean white background ("dropdown black") */
-select,
+/* Keep native dropdown options readable across light & dark OS themes without overriding select utility classes */
 option {
-  color: #000000 !important;
-  background-color: #ffffff !important;
+  color: #0f172a;
+  background-color: #ffffff;
 }
 
 /* Numbers & code retain clean monospace or tabular display */

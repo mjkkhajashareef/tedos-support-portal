@@ -44,6 +44,7 @@ export enum ModuleId {
   POLICIES = 'policies',
   PAYROLL = 'payroll',
   CLIENT_USAGE_BILLING = 'client_usage_billing',
+  SHIFT_MANAGEMENT = 'shift_management',
 }
 
 export const OFFICIAL_DEPARTMENTS = [
@@ -740,4 +741,23 @@ export interface ActiveWorkLogSession {
   strongReason: string;
   nextFollowUpDate: string;
 }
+
+export interface ShiftRecord {
+  id: string;
+  userId: string;
+  employeeId: string;
+  executiveName: string;
+  role: string;
+  date: string; // YYYY-MM-DD local date
+  shiftStartTime: string; // HH:mm (24h)
+  shiftStartTimestamp?: number;
+  shiftEndTime?: string; // HH:mm (24h)
+  shiftEndTimestamp?: number;
+  breakMinutes: number;
+  targetShiftMinutes: number;
+  status: 'Active' | 'Completed';
+  notes?: string;
+  updatedAt?: string;
+}
+
 

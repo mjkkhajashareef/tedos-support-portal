@@ -9,7 +9,7 @@ import { User, UserRole, UserStatus, Session } from '../types';
 import { AppPermission, checkRolePermission, ROLE_PERMISSIONS_MAP } from '../config/permissions';
 import { ACTIVE_CONFIG } from '../config/appConfig';
 import { AuthAudit } from '../utils/authAudit';
-import { Logger } from '../utils/helpers';
+import { Logger, getLocalDateString } from '../utils/helpers';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -189,7 +189,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       [UserRole.DIRECTOR]: 'Philsof Admin',
       [UserRole.OPERATION_MANAGER]: 'Operation Manager',
       [UserRole.SUPPORT_MANAGER]: 'Syed (Support Manager)',
-      [UserRole.SUPPORT_EXECUTIVE]: 'Asad',
+      [UserRole.SUPPORT_EXECUTIVE]: 'Support Executive',
       [UserRole.MARKETING_EXECUTIVE]: 'Marketing Lead',
       [UserRole.FRANCHISE_COORDINATOR]: 'Franchise Coordinator',
       [UserRole.TECHNICAL_TEAM]: 'Technical Support',
@@ -227,7 +227,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       assignedClients: [],
       designation: 'Staff',
       status: UserStatus.ACTIVE,
-      joiningDate: new Date().toISOString().split('T')[0],
+      joiningDate: getLocalDateString(),
       lastLogin: new Date().toISOString(),
       active: true,
     };

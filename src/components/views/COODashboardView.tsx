@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { exportWorkLogsToCSV, printDailyWorkLogReport } from '../../utils/exportUtils';
+import { getLocalDateString, isLogPendingProof } from '../../utils/helpers';
 
 export const COODashboardView: React.FC = () => {
   const {
@@ -44,8 +45,6 @@ export const COODashboardView: React.FC = () => {
     clients,
     tickets,
     updateWorkLogApproval,
-    addLogComment,
-    replyToLogComment,
     setWhatsAppModalOpen,
     language,
     refreshCurrentView,
@@ -57,7 +56,7 @@ export const COODashboardView: React.FC = () => {
   const [isManualSyncing, setIsManualSyncing] = useState(false);
   const [syncToast, setSyncToast] = useState(false);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [daybookRange, setDaybookRange] = useState<'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'all' | 'custom'>('all');
   const [selectedExecutiveFilter, setSelectedExecutiveFilter] = useState<string>('ALL');
@@ -175,9 +174,7 @@ export const COODashboardView: React.FC = () => {
       const firstLoginTime = firstLog?.startTime || firstLog?.time || 'No Entry';
       const isLate = firstLoginTime !== 'No Entry' && firstLoginTime > '10:20';
 
-      const unverifiedCount = logsToday.filter(
-        (l) => (l.durationMinutes || 0) > 5 && (!l.proofLink || !l.proofLink.trim())
-      ).length;
+      const unverifiedCount = logsToday.filter((l) => isLogPendingProof(l)).length;
 
       return {
         executive: exec,
@@ -194,14 +191,14 @@ export const COODashboardView: React.FC = () => {
         logsToday,
       };
     });
-  }, [supportExecutives, workLogs, selectedDate, isUrdu]);
+  }, [supportExecutives, filteredWorkLogs, isUrdu]);
 
   // Pending Approval Queue (Flagged or pending logs)
   const approvalQueue = useMemo(() => {
     return filteredWorkLogs.filter((log) => {
-      const isOver5WithoutProof = (log.durationMinutes || 0) > 5 && (!log.proofLink || !log.proofLink.trim());
+      const isPendingProof = isLogPendingProof(log);
       const isPending = log.approvalStatus === 'Pending';
-      const isFlagged = Boolean(log.flagReason) || isOver5WithoutProof;
+      const isFlagged = Boolean(log.flagReason) || isPendingProof;
 
       if (approvalFilter === 'Pending') return isPending;
       if (approvalFilter === 'Flagged') return isFlagged;
@@ -215,7 +212,7 @@ export const COODashboardView: React.FC = () => {
     const totalCalls = executiveProductivity.reduce((acc, curr) => acc + curr.totalCalls, 0);
     const activeStaff = executiveProductivity.filter((e) => e.totalMinutes > 0).length;
     const flaggedLogs = approvalQueue.filter(
-      (l) => l.approvalStatus === 'Pending' || l.flagReason || ((l.durationMinutes || 0) > 5 && !l.proofLink)
+      (l) => l.approvalStatus === 'Pending' || Boolean(l.flagReason) || isLogPendingProof(l)
     ).length;
 
     return {

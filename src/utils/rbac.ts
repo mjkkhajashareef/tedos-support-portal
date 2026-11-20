@@ -35,6 +35,7 @@ export const ALL_CONFIGURABLE_MODULES: { id: ModuleId; labelEn: string; labelUr:
   { id: ModuleId.DASHBOARD, labelEn: 'Operational Dashboard', labelUr: 'ڈیش بورڈ (اوور ویو)', category: 'Core' },
   { id: ModuleId.SUPPORT_EXECUTIVE_DASHBOARD, labelEn: 'Support Executive Workspace', labelUr: 'سپورٹ ایگزیکٹو ورک اسپیس', category: 'Support' },
   { id: ModuleId.DAILY_WORK_LOG, labelEn: 'Daily Work Log', labelUr: 'روزانہ ورک لاگ اندراج', category: 'Support' },
+  { id: ModuleId.SHIFT_MANAGEMENT, labelEn: 'Shift Management & Attendance', labelUr: 'شفٹ مینیجمنٹ و اوقات کار', category: 'Support' },
   { id: ModuleId.WORK_LOG_HISTORY, labelEn: 'Work Log History & Command Center', labelUr: 'ورک لاگ ہسٹری و کمانڈ سینٹر', category: 'Support' },
   { id: ModuleId.MY_CLIENTS, labelEn: 'My Assigned Clients', labelUr: 'میرے تفویض کردہ کلائنٹس', category: 'Clients' },
   { id: ModuleId.CLIENTS, labelEn: 'Master Clients Directory', labelUr: 'کلائنٹس کی مکمل ڈائریکٹری', category: 'Clients' },
@@ -65,6 +66,7 @@ export const ALL_MODULE_IDS = ALL_CONFIGURABLE_MODULES.map(m => m.id);
 const LEADERSHIP_MODULE_IDS: ModuleId[] = [
   ModuleId.DASHBOARD,
   ModuleId.COO_DASHBOARD,
+  ModuleId.SHIFT_MANAGEMENT,
   ModuleId.WORK_LOG_HISTORY,
   ModuleId.CLIENTS,
   ModuleId.CLIENT_WORKSPACE,
@@ -96,6 +98,7 @@ export const DEFAULT_ROLE_MODULE_ACCESS: Record<UserRole, ModuleId[]> = {
   [UserRole.SUPPORT_MANAGER]: [
     ModuleId.DASHBOARD,
     ModuleId.SUPPORT_EXECUTIVE_DASHBOARD,
+    ModuleId.SHIFT_MANAGEMENT,
     ModuleId.OVER_SERVICE,
     ModuleId.COO_DASHBOARD,
     ModuleId.WORK_LOG_HISTORY,
@@ -119,6 +122,7 @@ export const DEFAULT_ROLE_MODULE_ACCESS: Record<UserRole, ModuleId[]> = {
 
   // Support Executive: Exactly the user-specified pages (No Team Management, No Export Data)
   [UserRole.SUPPORT_EXECUTIVE]: [
+    ModuleId.SHIFT_MANAGEMENT,
     ModuleId.DAILY_WORK_LOG,
     ModuleId.DASHBOARD,
     ModuleId.TICKETS,
@@ -134,6 +138,7 @@ export const DEFAULT_ROLE_MODULE_ACCESS: Record<UserRole, ModuleId[]> = {
 
   [UserRole.TECHNICAL_TEAM]: [
     ModuleId.DASHBOARD,
+    ModuleId.SHIFT_MANAGEMENT,
     ModuleId.TICKETS,
     ModuleId.CLIENTS,
     ModuleId.CLIENT_WORKSPACE,
@@ -215,6 +220,18 @@ export const getRoleModulePermissions = (): Record<UserRole, ModuleId[]> => {
           m => m !== ModuleId.USER_MANAGEMENT && m !== ModuleId.REPORTS && m !== ModuleId.CLIENT_ACTIVATION
         );
       }
+
+      // One-time migration for newly introduced Shift Management module across existing browser caches
+      if (!localStorage.getItem('tedos_rbac_shift_v1')) {
+        [UserRole.SUPPORT_MANAGER, UserRole.SUPPORT_EXECUTIVE, UserRole.TECHNICAL_TEAM].forEach(r => {
+          if (merged[r] && !merged[r].includes(ModuleId.SHIFT_MANAGEMENT)) {
+            merged[r] = [ModuleId.SHIFT_MANAGEMENT, ...merged[r]];
+          }
+        });
+        localStorage.setItem('tedos_rbac_shift_v1', '1');
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      }
+
       return merged;
     }
   } catch (e) {

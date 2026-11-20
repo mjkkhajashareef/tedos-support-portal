@@ -89,12 +89,16 @@ function doGet(e) {
     }
   }
 
+  var resolvedPath = e && e.pathInfo
+    ? "/" + e.pathInfo
+    : ((e && e.parameter && e.parameter.path) ? String(e.parameter.path) : "/");
+
   var payload = {
     method: "GET",
-    path: e.pathInfo ? "/" + e.pathInfo : "/",
-    headers: e.headers || {},
+    path: resolvedPath,
+    headers: (e && e.headers) || {},
     rawBody: "",
-    query: e.parameter || {}
+    query: (e && e.parameter) || {}
   };
   var response = Dispatcher.dispatch(payload);
   return ContentService.createTextOutput(JSON.stringify(response))
@@ -103,7 +107,7 @@ function doGet(e) {
 
 function doPost(e) {
   Logger.log("doPost triggered");
-  var rawBody = e.postData ? e.postData.contents : "";
+  var rawBody = e && e.postData ? e.postData.contents : "";
   Logger.log("RawBody: " + rawBody);
 
   var parsedData = null;
@@ -113,11 +117,29 @@ function doPost(e) {
     Logger.log("JSON parse error: " + err.message);
   }
 
-  // FAST-PATH 1: Ticket Raise & Form responses 1 Sync (Requirement #2)
-  if (parsedData && (parsedData.action === "raiseTicket" || parsedData.action === "syncTicketResponse1" || parsedData.targetSheet === "Form responses 1")) {
+  // Unwrap REST tunnel envelope if request came from AppsScriptHttpAdapter
+  var tunneledMethod = null;
+  var tunneledPath = null;
+  var tunneledHeaders = null;
+  var effectiveBody = parsedData;
+  var effectiveRawBody = rawBody;
+  if (parsedData && parsedData.path && parsedData.method && parsedData.body !== undefined) {
+    tunneledMethod = String(parsedData.method).toUpperCase();
+    tunneledPath = String(parsedData.path);
+    tunneledHeaders = parsedData.headers || {};
+    effectiveBody = typeof parsedData.body === "string" ? JSON.parse(parsedData.body || "{}") : parsedData.body;
+    effectiveRawBody = typeof parsedData.body === "string" ? parsedData.body : JSON.stringify(parsedData.body || {});
+  }
+
+  var actionData = effectiveBody || parsedData;
+
+  // FAST-PATH 1: Ticket Raise & Form responses 1 / Ticket Rase Sync
+  if (actionData && (actionData.action === "raiseTicket" || actionData.action === "syncTicketResponse1" || actionData.targetSheet === "Form responses 1" || actionData.targetSheet === "Ticket Rase")) {
     try {
       var ss = SpreadsheetApp.getActiveSpreadsheet();
-      var sheetName = "Form responses 1";
+      var sheetName = actionData.targetSheet === "Ticket Rase"
+        ? (ss.getSheetByName("Ticket Rase") ? "Ticket Rase" : "Form responses 1")
+        : "Form responses 1";
       var sheet = ss.getSheetByName(sheetName);
       if (!sheet) {
         sheet = ss.insertSheet(sheetName);
@@ -140,40 +162,37 @@ function doPost(e) {
         sheet.setFrozenRows(1);
       }
 
-      var ticketId = String(parsedData.id || parsedData.ticketId || "TKT-" + Date.now()).trim();
+      var ticketId = String(actionData.id || actionData.ticketId || "TKT-" + Date.now()).trim();
       var timestamp = new Date();
-      var clientName = parsedData.clientName || "";
-      var teId = parsedData.teId || "";
-      var category = parsedData.issueCategory || "";
-      var description = parsedData.issueDescription || parsedData.summary || "";
-      var priority = parsedData.priority || "High";
-      var status = parsedData.status || "In Progress";
-      var raisedBy = parsedData.raisedFrom || parsedData.raisedBy || parsedData.createdBy || parsedData.supportName || "Support Team";
-      var assignedTo = parsedData.assignedExecutive || parsedData.raisedTo || "COO";
-      var attachment = parsedData.attachmentUrl || parsedData.proofLink || "";
-      var resolution = parsedData.resolutionSummary || "";
-      var updatedDate = parsedData.date || new Date().toISOString().split("T")[0];
-      var response1 = parsedData.ultimateResponse1 || parsedData.response1 || ("[TICKET " + ticketId + "] " + clientName + " - " + category + " (" + status + ")");
+      var clientName = actionData.clientName || "";
+      var teId = actionData.teId || "";
+      var category = actionData.issueCategory || "";
+      var description = actionData.issueDescription || actionData.summary || "";
+      var priority = actionData.priority || "High";
+      var status = actionData.status || "In Progress";
+      var raisedBy = actionData.raisedFrom || actionData.raisedBy || actionData.createdBy || actionData.supportName || "Support Team";
+      var assignedTo = actionData.assignedExecutive || actionData.raisedTo || "COO";
+      var attachment = actionData.attachmentUrl || actionData.proofLink || "";
+      var resolution = actionData.resolutionSummary || "";
+      var updatedDate = actionData.date || new Date().toISOString().split("T")[0];
+      var response1 = actionData.ultimateResponse1 || actionData.response1 || ("[TICKET " + ticketId + "] " + clientName + " - " + category + " (" + status + ")");
 
-      // Check if ticket already exists in sheet to update or append
       var values = sheet.getDataRange().getValues();
       var foundRow = -1;
       for (var r = 1; r < values.length; r++) {
         if (String(values[r][1] || "").trim() === ticketId) {
-          foundRow = r + 1; // 1-indexed
+          foundRow = r + 1;
           break;
         }
       }
 
       if (foundRow > 0) {
-        // Update existing ticket row
         sheet.getRange(foundRow, 7).setValue(priority);
         sheet.getRange(foundRow, 8).setValue(status);
         if (resolution) sheet.getRange(foundRow, 12).setValue(resolution);
         sheet.getRange(foundRow, 13).setValue(updatedDate);
         sheet.getRange(foundRow, 14).setValue(response1);
       } else {
-        // Append new ticket row
         sheet.appendRow([
           timestamp,
           ticketId,
@@ -194,12 +213,12 @@ function doPost(e) {
 
       return ContentService.createTextOutput(JSON.stringify({
         success: true,
-        message: "Ticket successfully synced to Form responses 1 sheet",
+        message: "Ticket successfully synced to " + sheetName + " sheet",
         ticketId: ticketId,
         sheet: sheetName
       })).setMimeType(ContentService.MimeType.JSON);
     } catch (tktErr) {
-      Logger.log("Error writing to Form responses 1: " + tktErr.message);
+      Logger.log("Error writing to Ticket sheet: " + tktErr.message);
       return ContentService.createTextOutput(JSON.stringify({
         success: false,
         error: tktErr.message
@@ -207,15 +226,14 @@ function doPost(e) {
     }
   }
 
-  // FAST-PATH 2: addWorkLog / updateWorkLogProof Fast Path
-  if (parsedData && (parsedData.action === "addWorkLog" || parsedData.action === "updateWorkLogProof" || parsedData.action === "syncUltimateFollowUp")) {
+  // FAST-PATH 2: addWorkLog / updateWorkLogProof / syncUltimateFollowUp / syncShift
+  if (actionData && (actionData.action === "addWorkLog" || actionData.action === "updateWorkLogProof" || actionData.action === "syncUltimateFollowUp" || actionData.action === "syncShift")) {
     try {
       var ss = SpreadsheetApp.getActiveSpreadsheet();
       var sheet = ss.getSheetByName("Work Logs") || ss.getSheetByName("ultimate support control") || ss.getSheets()[0];
-      
-      // If updating proof link on existing row
-      if (parsedData.action === "updateWorkLogProof" && parsedData.id) {
-        var logId = String(parsedData.id).trim();
+
+      if (actionData.action === "updateWorkLogProof" && actionData.id) {
+        var logId = String(actionData.id).trim();
         var dataRange = sheet.getDataRange();
         var vals = dataRange.getValues();
         var matchedRow = -1;
@@ -227,8 +245,8 @@ function doPost(e) {
         }
 
         if (matchedRow > 0) {
-          var proofUrl = parsedData.proofLink || "";
-          var mgrRemark = parsedData.managerRemark || "";
+          var proofUrl = actionData.proofLink || "";
+          var mgrRemark = actionData.managerRemark || "";
           if (proofUrl) sheet.getRange(matchedRow, 11).setValue(proofUrl);
           if (mgrRemark) sheet.getRange(matchedRow, 19).setValue(mgrRemark);
           return ContentService.createTextOutput(JSON.stringify({
@@ -238,24 +256,66 @@ function doPost(e) {
         }
       }
 
-      // If addWorkLog
-      if (parsedData.action === "addWorkLog") {
+      if (actionData.action === "syncUltimateFollowUp") {
+        var fuSheet = ss.getSheetByName("Follow_Up_Tracker") || ss.getSheetByName("Follow Ups") || sheet;
+        fuSheet.appendRow([
+          actionData.id || "F-" + Date.now(),
+          actionData.teId || "",
+          actionData.clientName || "",
+          actionData.nextFollowUpDate || actionData.date || "",
+          actionData.startTime || "11:00",
+          actionData.status || "Pending",
+          actionData.summary || "",
+          actionData.supportName || "",
+          actionData.remarksClient || ""
+        ]);
+        return ContentService.createTextOutput(JSON.stringify({
+          success: true,
+          message: "Follow-up synchronized to sheet"
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      if (actionData.action === "syncShift") {
+        var shiftSheet = ss.getSheetByName("Shift_Logs");
+        if (!shiftSheet) {
+          shiftSheet = ss.insertSheet("Shift_Logs");
+          shiftSheet.appendRow(["Shift ID", "Employee ID", "Executive", "Date", "Start Time", "End Time", "Break Mins", "Status", "Notes"]);
+          shiftSheet.setFrozenRows(1);
+        }
+        shiftSheet.appendRow([
+          actionData.id || "SHF-" + Date.now(),
+          actionData.employeeId || "",
+          actionData.executiveName || "",
+          actionData.date || "",
+          actionData.shiftStartTime || "",
+          actionData.shiftEndTime || "",
+          actionData.breakMinutes || 0,
+          actionData.status || "Active",
+          actionData.notes || ""
+        ]);
+        return ContentService.createTextOutput(JSON.stringify({
+          success: true,
+          message: "Shift record synchronized to Shift_Logs sheet"
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      if (actionData.action === "addWorkLog") {
         var newRow = [
-          parsedData.id || "LOG-" + Date.now(),
-          parsedData.teId || "",
-          parsedData.clientName || "",
-          parsedData.date || new Date().toISOString().split("T")[0],
-          parsedData.startTime || "",
-          parsedData.endTime || "",
-          parsedData.duration || "00:15:00",
-          parsedData.issueCategory || "",
-          parsedData.workType || "",
-          parsedData.summary || "",
-          parsedData.proofLink || "",
-          parsedData.status || "Completed",
-          parsedData.clientSatisfactionKpi || "Satisfied",
-          parsedData.nextFollowUpDate || "",
-          parsedData.supportName || ""
+          actionData.id || "LOG-" + Date.now(),
+          actionData.teId || "",
+          actionData.clientName || "",
+          actionData.date || new Date().toISOString().split("T")[0],
+          actionData.startTime || "",
+          actionData.endTime || "",
+          actionData.duration || "00:15:00",
+          actionData.issueCategory || "",
+          actionData.workType || "",
+          actionData.summary || "",
+          actionData.proofLink || "",
+          actionData.status || "Completed",
+          actionData.clientSatisfactionKpi || "Satisfied",
+          actionData.nextFollowUpDate || "",
+          actionData.supportName || ""
         ];
         sheet.appendRow(newRow);
         return ContentService.createTextOutput(JSON.stringify({
@@ -268,13 +328,13 @@ function doPost(e) {
     }
   }
 
-  // Standard Dispatcher fallback
+  // Standard Dispatcher fallback (supports unwrapped REST tunnel envelopes)
   var payload = {
-    method: "POST",
-    path: e.pathInfo ? "/" + e.pathInfo : "/",
-    headers: e.headers || {},
-    rawBody: rawBody,
-    query: e.parameter || {}
+    method: tunneledMethod || "POST",
+    path: tunneledPath || ((e && e.pathInfo) ? "/" + e.pathInfo : "/"),
+    headers: tunneledHeaders || (e && e.headers) || {},
+    rawBody: effectiveRawBody,
+    query: (e && e.parameter) || {}
   };
   try {
     var response = Dispatcher.dispatch(payload);

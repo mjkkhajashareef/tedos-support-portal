@@ -24,6 +24,7 @@ export interface TranslationDictionary {
   userManagement: string;
   systemSettings: string;
   payrollPortal: string;
+  shiftManagement: string;
   
   // Login View
   welcomeTitle: string;
@@ -88,6 +89,7 @@ export const TRANSLATIONS: Record<AppLanguage, TranslationDictionary> = {
     userManagement: 'Team User Management',
     systemSettings: 'System Settings',
     payrollPortal: 'Payroll & Attendance Portal ↗',
+    shiftManagement: 'Shift Management',
     
     welcomeTitle: 'Techno Evident Support',
     welcomeSubtitle: 'Secure digital operating portal for Philsof & Techno Evident',
@@ -146,6 +148,7 @@ export const TRANSLATIONS: Record<AppLanguage, TranslationDictionary> = {
     userManagement: 'ٹیم ممبرز مینیجمنٹ',
     systemSettings: 'سسٹم سیٹنگز',
     payrollPortal: 'پے رول و حاضری پورٹل ↗',
+    shiftManagement: 'شفٹ مینیجمنٹ (Shift Management)',
     
     welcomeTitle: 'ٹیکنو ایویڈنٹ سپورٹ سسٹم',
     welcomeSubtitle: 'محفوظ سپورٹ ڈیجیٹل سسٹم برائے فل سافٹ اور ٹیکنو ایویڈنٹ',

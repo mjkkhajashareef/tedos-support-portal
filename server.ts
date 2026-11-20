@@ -4,19 +4,23 @@ import fs from "fs";
 import "dotenv/config";
 import { createServer as createViteServer } from "vite";
 import { handleGeminiChat } from "./server/gemini.ts";
+import { GAS_WEB_APP_URL, GAS_BILLING_URL, syncPayloadToGAS } from "./server/gasSync.ts";
 
 const __dirname = process.cwd();
+const ADMIN_DEFAULT_PASSWORD = (process.env.ADMIN_DEFAULT_PASSWORD || "").trim();
 const DATA_DIR = path.join(__dirname, "data");
 const WORKLOGS_FILE = path.join(DATA_DIR, "worklogs.json");
 const ROLES_FILE = path.join(DATA_DIR, "roles.json");
 const CLIENT_URLS_FILE = path.join(DATA_DIR, "client_urls.json");
 const MESSAGES_FILE = path.join(DATA_DIR, "messages.json");
 const TICKETS_FILE = path.join(DATA_DIR, "tickets.json");
+const FOLLOWUPS_FILE = path.join(DATA_DIR, "followups.json");
 const BRANDING_FILE = path.join(DATA_DIR, "branding.json");
 const INTERAKT_SETTINGS_FILE = path.join(DATA_DIR, "interakt_settings.json");
 const INTERAKT_LOGS_FILE = path.join(DATA_DIR, "interakt_logs.json");
 const USERS_FILE = path.join(DATA_DIR, "users.json");
 const CLIENT_BILLING_FILE = path.join(DATA_DIR, "client_usage_billing.json");
+const SHIFTS_FILE = path.join(DATA_DIR, "shifts.json");
 
 const DEFAULT_USERS_DATA = [
   {
@@ -34,7 +38,7 @@ const DEFAULT_USERS_DATA = [
     status: "Active",
     joiningDate: "2023-01-01",
     active: true,
-    password: "Technolive@22",
+    password: ADMIN_DEFAULT_PASSWORD,
     aliases: ["azhaer@philsof.com", "support@philsof.com", "admin@philsof.com", "director@technoevident.com", "techno admin"],
     baseSalary: 120000,
     monthlyIncentive: 15000
@@ -54,7 +58,7 @@ const DEFAULT_USERS_DATA = [
     status: "Active",
     joiningDate: "2023-02-01",
     active: true,
-    password: "Technolive@22",
+    password: ADMIN_DEFAULT_PASSWORD,
     aliases: ["coo@philsof.com", "coo@technoevident.com", "khaja shareef", "shareef"],
     baseSalary: 25000,
     monthlyIncentive: 2000
@@ -281,9 +285,9 @@ async function startServer() {
 
       // Only forward to GAS if client explicitly requests server-side sync (via syncToGas: true)
       // and skipGas is not set. This prevents the duplicate entries caused by both client and server posting.
-      const gasUrl = "https://script.google.com/macros/s/AKfycbxhbrnIQMIFHpZGXxq2Q2xnPJLPQtnCpDbDXFIOBPeWo6vulj2jEiWWrVlonr6dHa_M/exec";
-      newEntries.forEach(entry => {
-        if (!entry || entry.skipGas === true || !entry.syncToGas) return;
+      const sheetSyncResults: any[] = [];
+      for (const entry of newEntries) {
+        if (!entry || entry.skipGas === true || !entry.syncToGas) continue;
         const execName = entry.executiveName || entry.supportName || (entry as any)['Executive Name'] || (entry as any)['Executive'] || "Support Team";
         const proof = entry.proofLink || (entry as any)['Proof Link'] || (entry as any)['proof_link'] || '';
         const summary = entry.details || entry.summary || '';
@@ -314,15 +318,19 @@ async function startServer() {
           syncStatus: 'Synchronized'
         };
 
-        fetch(gasUrl, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(gasPayload),
-          redirect: "follow"
-        }).catch(err => console.warn("[SERVER] GAS Sync warning:", err));
-      });
+        const syncRes = await syncPayloadToGAS(gasPayload);
+        sheetSyncResults.push({ id: entry.id, ...syncRes });
+      }
 
-      res.json({ success: true, count: updatedList.length, saved: newEntries.length });
+      const sheetSynced = sheetSyncResults.length === 0 ? true : sheetSyncResults.some(r => r.sheetSynced);
+      res.json({
+        success: true,
+        count: updatedList.length,
+        saved: newEntries.length,
+        sheetSynced,
+        sheetMessage: sheetSyncResults[0]?.sheetMessage || "Saved locally",
+        sheetSync: sheetSyncResults
+      });
     } catch (e: any) {
       console.error("Failed to save work logs:", e);
       res.status(500).json({ success: false, error: e.message });
@@ -331,16 +339,89 @@ async function startServer() {
 
   // Shared Roles & Dynamic Permissions Endpoints (Requirement #5)
   app.get("/api/roles", (req, res) => {
-    const roles = readJsonFile<any[]>(ROLES_FILE, []);
+    const roles = readJsonFile<any>(ROLES_FILE, null);
     res.json({ success: true, roles });
   });
 
   app.post("/api/roles", (req, res) => {
     try {
       const incomingRoles = req.body;
-      const list = Array.isArray(incomingRoles) ? incomingRoles : [incomingRoles];
-      writeJsonFile(ROLES_FILE, list);
-      res.json({ success: true, count: list.length });
+      if (incomingRoles && typeof incomingRoles === "object") {
+        writeJsonFile(ROLES_FILE, incomingRoles);
+        res.json({ success: true });
+      } else {
+        res.status(400).json({ success: false, error: "Invalid roles payload" });
+      }
+    } catch (e: any) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  // Daily Shift Management Endpoints (Start/End Time tracking integrated with work logs)
+  app.get("/api/shifts", (req, res) => {
+    const shifts = readJsonFile<any[]>(SHIFTS_FILE, []);
+    res.json({ success: true, count: shifts.length, shifts });
+  });
+
+  app.post("/api/shifts", async (req, res) => {
+    try {
+      const incoming = req.body;
+      const currentShifts = readJsonFile<any[]>(SHIFTS_FILE, []);
+      const newItems = Array.isArray(incoming) ? incoming : [incoming];
+      const map = new Map<string, any>();
+      currentShifts.forEach(s => {
+        if (s && s.id) map.set(s.id, s);
+      });
+      newItems.forEach(item => {
+        if (item && item.id) {
+          const existing = map.get(item.id) || {};
+          map.set(item.id, { ...existing, ...item, updatedAt: new Date().toISOString() });
+        }
+      });
+      const updated = Array.from(map.values()).sort((a, b) => {
+        const da = (b.date || "").localeCompare(a.date || "");
+        if (da !== 0) return da;
+        return (b.shiftStartTimestamp || 0) - (a.shiftStartTimestamp || 0);
+      });
+      writeJsonFile(SHIFTS_FILE, updated);
+
+      const firstItem = newItems[0];
+      const gasResult = firstItem
+        ? await syncPayloadToGAS({ action: "syncShift", ...firstItem }, { queryAction: "syncShift", sheetTab: "Shift_Logs" })
+        : { sheetSynced: true, sheetMessage: "No shift item to sync" };
+
+      res.json({ success: true, count: updated.length, shifts: updated, ...gasResult });
+    } catch (e: any) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  app.put("/api/shifts/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body || {};
+      const currentShifts = readJsonFile<any[]>(SHIFTS_FILE, []);
+      let found = false;
+      let savedShift: any = null;
+      const updated = currentShifts.map(s => {
+        if (s && s.id === id) {
+          found = true;
+          savedShift = { ...s, ...updates, id: s.id, updatedAt: new Date().toISOString() };
+          return savedShift;
+        }
+        return s;
+      });
+      if (!found) {
+        savedShift = { ...updates, id, updatedAt: new Date().toISOString() };
+        updated.unshift(savedShift);
+      }
+      writeJsonFile(SHIFTS_FILE, updated);
+
+      const gasResult = await syncPayloadToGAS(
+        { action: "syncShift", ...savedShift },
+        { queryAction: "syncShift", sheetTab: "Shift_Logs" }
+      );
+      res.json({ success: true, shift: savedShift, shifts: updated, ...gasResult });
     } catch (e: any) {
       res.status(500).json({ success: false, error: e.message });
     }
@@ -555,11 +636,6 @@ async function startServer() {
 
       const cleanIdNormalized = cleanId.replace(/,/g, ".");
       const PINNED_PASSWORDS: Record<string, string> = {
-        "azhaer@philsof.com": "Technolive@22",
-        "support@philsof.com": "Technolive@22",
-        "admin@philsof.com": "Technolive@22",
-        "coo@philsof.com": "Technolive@22",
-        "coo@technoevident.com": "Technolive@22",
         "manager@philsof.com": "manager@22",
         "manager@technoevident.com": "manager@22",
         "supportmanager@technoevident.com": "manager@22",
@@ -652,17 +728,18 @@ async function startServer() {
       const uEmail = (matchedUser.email || "").toLowerCase();
       const expectedPinned = PINNED_PASSWORDS[uEmail] || PINNED_PASSWORDS[cleanId] || PINNED_PASSWORDS[cleanIdNormalized];
       const userPassword = (matchedUser.password || "").trim();
-      const matchesDirect = userPassword === cleanPass || userPassword.toLowerCase() === cleanPass.toLowerCase();
-      const matchesPinned = Boolean(expectedPinned && (cleanPass === expectedPinned || cleanPass.toLowerCase() === expectedPinned.toLowerCase()));
-      const matchesStandard = cleanPass === "Technolive@22" || cleanPass === "Technolove@22" || cleanPass === "Admin@123" || cleanPass === "admin123";
-      const matchesRole =
-        (matchedUser.role === "Director" && (cleanPass === "Technolive@22" || cleanPass === "Technolove@22")) ||
-        (matchedUser.role === "COO" && (cleanPass === "Technolive@22" || cleanPass === "Technolove@22")) ||
-        (matchedUser.role === "Support Manager" && (cleanPass === "manager@22" || cleanPass === "Technolive@22")) ||
-        (matchedUser.role === "Operation Manager" && (cleanPass === "operation@22" || cleanPass === "Technolive@22")) ||
-        (matchedUser.role === "Support Executive" && (cleanPass === "umar@22" || cleanPass === "farman@22" || cleanPass === "haneef@22" || cleanPass === "sumayya@22"));
+      const hasExplicitStoredPassword = userPassword.length > 0;
+      const isAdminOrCoo = matchedUser.role === "Director" || matchedUser.role === "COO";
+      const matchesEnvAdminDefault = Boolean(ADMIN_DEFAULT_PASSWORD && isAdminOrCoo && cleanPass === ADMIN_DEFAULT_PASSWORD);
+      const matchesDirect = hasExplicitStoredPassword && (userPassword === cleanPass || userPassword.toLowerCase() === cleanPass.toLowerCase());
+      const matchesPinned = !hasExplicitStoredPassword && Boolean(expectedPinned && (cleanPass === expectedPinned || cleanPass.toLowerCase() === expectedPinned.toLowerCase()));
+      const matchesRole = !hasExplicitStoredPassword && (
+        (matchedUser.role === "Support Manager" && cleanPass === "manager@22") ||
+        (matchedUser.role === "Operation Manager" && cleanPass === "operation@22") ||
+        (matchedUser.role === "Support Executive" && (cleanPass === "umar@22" || cleanPass === "farman@22" || cleanPass === "haneef@22" || cleanPass === "sumayya@22"))
+      );
 
-      if (!matchesDirect && !matchesPinned && !matchesStandard && !matchesRole) {
+      if (!matchesDirect && !matchesPinned && !matchesEnvAdminDefault && !matchesRole) {
         return res.status(401).json({
           success: false,
           error: {
@@ -861,7 +938,6 @@ async function startServer() {
       writeJsonFile(TICKETS_FILE, updatedList);
 
       // Forward each ticket to Google Apps Script targeting sheet tab "Ticket Rase" in Ultimate Support Control Sheet
-      const gasUrl = "https://script.google.com/macros/s/AKfycbxhbrnIQMIFHpZGXxq2Q2xnPJLPQtnCpDbDXFIOBPeWo6vulj2jEiWWrVlonr6dHa_M/exec";
       const syncResults = await Promise.all(
         newItems.map(async ticket => {
           const gasPayload = {
@@ -872,7 +948,7 @@ async function startServer() {
             sheetTab: "Ticket Rase",
             id: ticket.id,
             ticketId: ticket.id,
-            date: ticket.createdDate || new Date().toISOString().split("T")[0],
+            date: ticket.createdDate || new Date().toLocaleDateString("en-CA"),
             timestamp: new Date().toISOString(),
             clientName: ticket.clientName,
             clientId: ticket.clientId,
@@ -897,23 +973,11 @@ async function startServer() {
             response1: ticket.ultimateResponse1 || ""
           };
 
-          try {
-            const ticketGasUrl = `${gasUrl}?action=raiseTicket&sheet=Ticket%20Rase&tab=Ticket%20Rase`;
-            const gasRes = await fetch(ticketGasUrl, {
-              method: "POST",
-              headers: { "Content-Type": "text/plain;charset=utf-8" },
-              body: JSON.stringify(gasPayload),
-              redirect: "follow"
-            });
-            const text = await gasRes.text();
-            let parsed: any;
-            try { parsed = JSON.parse(text); } catch { parsed = { raw: text }; }
-            console.log(`[SERVER] Synced Ticket ${ticket.id} to GAS (${ticketGasUrl}):`, parsed);
-            return { ticketId: ticket.id, success: true, gasResponse: parsed };
-          } catch (err: any) {
-            console.warn(`[SERVER] Ticket sync error for ${ticket.id}:`, err?.message);
-            return { ticketId: ticket.id, success: false, error: err?.message };
-          }
+          const gasResult = await syncPayloadToGAS(gasPayload, {
+            queryAction: "raiseTicket",
+            sheetTab: "Ticket Rase"
+          });
+          return { ticketId: ticket.id, success: gasResult.sheetSynced, ...gasResult };
         })
       );
 
@@ -934,9 +998,144 @@ async function startServer() {
         }
       });
 
-      res.json({ success: true, count: updatedList.length, saved: newItems.length, sheetSync: syncResults });
+      const allSynced = syncResults.length > 0 && syncResults.every(r => r.success);
+      res.json({
+        success: true,
+        count: updatedList.length,
+        saved: newItems.length,
+        sheetSynced: allSynced,
+        sheetMessage: syncResults[0]?.sheetMessage || "Ticket saved",
+        sheetSync: syncResults
+      });
     } catch (e: any) {
       console.error("Failed to save tickets:", e);
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  app.put("/api/tickets/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body || {};
+      const currentTickets = readJsonFile<any[]>(TICKETS_FILE, []);
+      let savedTicket: any = null;
+      const updated = currentTickets.map(t => {
+        if (t && t.id === id) {
+          savedTicket = { ...t, ...updates, id: t.id, updatedAt: new Date().toISOString() };
+          return savedTicket;
+        }
+        return t;
+      });
+      if (!savedTicket) {
+        savedTicket = { ...updates, id, updatedAt: new Date().toISOString() };
+        updated.unshift(savedTicket);
+      }
+      writeJsonFile(TICKETS_FILE, updated);
+
+      const gasResult = await syncPayloadToGAS(
+        {
+          action: "syncTicketResponse1",
+          targetSheet: "Ticket Rase",
+          id: savedTicket.id,
+          ticketId: savedTicket.id,
+          date: savedTicket.updatedDate || new Date().toLocaleDateString("en-CA"),
+          clientName: savedTicket.clientName,
+          teId: savedTicket.teId || savedTicket.clientId,
+          issueCategory: savedTicket.issueCategory,
+          priority: savedTicket.priority,
+          status: savedTicket.status,
+          resolutionSummary: savedTicket.resolutionSummary || "",
+          attachmentUrl: savedTicket.attachmentUrl || "",
+          ultimateResponse1: savedTicket.ultimateResponse1 || ""
+        },
+        { queryAction: "syncTicketResponse1", sheetTab: "Ticket Rase" }
+      );
+      res.json({ success: true, ticket: savedTicket, ...gasResult });
+    } catch (e: any) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  // Follow-ups Persistence & Sheet Sync Endpoints
+  app.get("/api/follow-ups", (req, res) => {
+    const followUps = readJsonFile<any[]>(FOLLOWUPS_FILE, []);
+    res.json({ success: true, count: followUps.length, followUps });
+  });
+
+  app.post("/api/follow-ups", async (req, res) => {
+    try {
+      const incoming = req.body;
+      const current = readJsonFile<any[]>(FOLLOWUPS_FILE, []);
+      const newItems = Array.isArray(incoming) ? incoming : [incoming];
+      const map = new Map<string, any>();
+      current.forEach(item => {
+        if (item && item.id) map.set(item.id, item);
+      });
+      newItems.forEach(item => {
+        if (item && item.id) {
+          const existing = map.get(item.id) || {};
+          map.set(item.id, { ...existing, ...item, updatedAt: new Date().toISOString() });
+        }
+      });
+      const updated = Array.from(map.values());
+      writeJsonFile(FOLLOWUPS_FILE, updated);
+
+      const first = newItems[0];
+      const gasResult = first && !first.skipGas
+        ? await syncPayloadToGAS({
+            action: "syncUltimateFollowUp",
+            id: first.id,
+            teId: first.teId,
+            clientName: first.clientName,
+            nextFollowUpDate: first.scheduledDate,
+            startTime: first.scheduledTime || "11:00",
+            status: first.status || "Pending",
+            summary: first.reason,
+            supportName: first.executiveName,
+            remarksClient: first.remarks || ""
+          })
+        : { sheetSynced: true, sheetMessage: "Saved locally" };
+
+      res.json({ success: true, count: updated.length, followUps: updated, ...gasResult });
+    } catch (e: any) {
+      res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  app.put("/api/follow-ups/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body || {};
+      const current = readJsonFile<any[]>(FOLLOWUPS_FILE, []);
+      let savedItem: any = null;
+      const updated = current.map(f => {
+        if (f && f.id === id) {
+          savedItem = { ...f, ...updates, id: f.id, updatedAt: new Date().toISOString() };
+          return savedItem;
+        }
+        return f;
+      });
+      if (!savedItem) {
+        savedItem = { ...updates, id, updatedAt: new Date().toISOString() };
+        updated.unshift(savedItem);
+      }
+      writeJsonFile(FOLLOWUPS_FILE, updated);
+
+      const gasResult = await syncPayloadToGAS({
+        action: "syncUltimateFollowUp",
+        id: savedItem.id,
+        teId: savedItem.teId,
+        clientName: savedItem.clientName,
+        nextFollowUpDate: savedItem.scheduledDate,
+        startTime: savedItem.scheduledTime || "11:00",
+        status: savedItem.status,
+        summary: savedItem.reason,
+        supportName: savedItem.executiveName,
+        remarksClient: savedItem.remarks || ""
+      });
+
+      res.json({ success: true, followUp: savedItem, ...gasResult });
+    } catch (e: any) {
       res.status(500).json({ success: false, error: e.message });
     }
   });
@@ -1187,8 +1386,8 @@ async function startServer() {
     console.log(`[PROXY] Incoming Body: ${JSON.stringify(req.body)}`);
 
     try {
-      const url = "https://script.google.com/macros/s/AKfycbxhbrnIQMIFHpZGXxq2Q2xnPJLPQtnCpDbDXFIOBPeWo6vulj2jEiWWrVlonr6dHa_M/exec";
-      console.log(`[PROXY] Target GAS URL: ${url}`);
+      const useBillingTarget = req.query.target === "billing" || req.body?.target === "billing";
+      const url = useBillingTarget ? GAS_BILLING_URL : GAS_WEB_APP_URL;
       const params = new URLSearchParams(req.query as any);
       if (req.method === 'POST' && req.body && typeof req.body === 'object') {
         if (req.body.action && !params.has('action')) {
@@ -1198,35 +1397,33 @@ async function startServer() {
           params.set('sheet', String(req.body.targetSheet || req.body.sheetName || req.body.tab));
         }
       }
-      
+
       const fetchOptions: RequestInit = {
         method: req.method,
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: req.method === 'POST'
+          ? { "Content-Type": "text/plain;charset=utf-8" }
+          : undefined,
         redirect: 'follow'
       };
 
       if (req.method === 'POST') {
-        const body = JSON.stringify(req.body);
-        console.log(`[PROXY] Forwarding Body: ${body}`);
-        fetchOptions.body = body;
+        fetchOptions.body = JSON.stringify(req.body);
       }
-      
-      console.log(`[PROXY] Forward Method: ${fetchOptions.method}`);
-      
-      const response = await fetch(url + "?" + params.toString(), fetchOptions);
-      console.log(`[PROXY] GAS Status: ${response.status}`);
-      
+
+      const targetUrl = params.toString() ? `${url}?${params.toString()}` : url;
+      const response = await fetch(targetUrl, fetchOptions);
       const text = await response.text();
-      console.log(`[PROXY] GAS Response: ${text.slice(0, 300)}...`);
-      
+
       let data;
       try {
         data = JSON.parse(text);
-      } catch (e) {
-        console.error('GAS response is not JSON:', text);
-        return res.status(500).json({ success: false, message: 'Invalid JSON from GAS', rawResponse: text });
+      } catch {
+        console.error('GAS response is not JSON:', text.slice(0, 200));
+        return res.status(502).json({
+          success: false,
+          message: 'Invalid JSON response from Google Apps Script gateway',
+          rawResponse: text.slice(0, 200)
+        });
       }
       
       // Seamlessly merge and persist real client URLs, logins, and remarks (Column O, P, S)

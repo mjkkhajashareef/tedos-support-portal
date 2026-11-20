@@ -38,6 +38,7 @@ import { GeminiChatbotView } from './components/gemini/GeminiChatbotView';
 import { GeminiFloatingWidget } from './components/gemini/GeminiFloatingWidget';
 import { AIMessageStudioView } from './components/views/AIMessageStudioView';
 import { ClientUsageBillingView } from './components/views/ClientUsageBillingView';
+import { ShiftManagementView } from './components/views/ShiftManagementView';
 
 function RootView() {
   const {
@@ -107,6 +108,8 @@ function RootView() {
         return <ClientWorkspaceView />;
       case ModuleId.DAILY_WORK_LOG:
         return <DailyWorkLogView />;
+      case ModuleId.SHIFT_MANAGEMENT:
+        return <ShiftManagementView />;
       case ModuleId.WORK_LOG_HISTORY:
         return <WorkLogHistoryView />;
       case ModuleId.OVER_SERVICE:

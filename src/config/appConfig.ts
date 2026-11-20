@@ -3,9 +3,42 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export const GOOGLE_APPS_SCRIPT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxhbrnIQMIFHpZGXxq2Q2xnPJLPQtnCpDbDXFIOBPeWo6vulj2jEiWWrVlonr6dHa_M/exec';
+const envVars = (import.meta as unknown as { env?: Record<string, string | undefined> }).env || {};
+
+const DEFAULT_GAS_WEB_APP_URL =
+  'https://script.google.com/macros/s/AKfycbxhbrnIQMIFHpZGXxq2Q2xnPJLPQtnCpDbDXFIOBPeWo6vulj2jEiWWrVlonr6dHa_M/exec';
+const DEFAULT_GAS_BILLING_URL =
+  'https://script.google.com/macros/s/AKfycbwnTipPI0OqpJdmgJa5q7ZgPit0jyIVvxFamdbC8pTVpYslchy2vfoOYdD_Po-8QsAE/exec';
+
+function sanitizeGasUrl(raw: string | undefined, fallback: string): string {
+  const trimmed = (raw || '').trim().replace(/^["']|["']$/g, '');
+  if (!trimmed) return fallback;
+
+  const mdMatch = trimmed.match(/\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/i);
+  const candidate = mdMatch ? mdMatch[1].trim() : trimmed;
+  const urlMatch = candidate.match(/https?:\/\/[^\s)\]"'<>]+/i);
+  const extracted = urlMatch ? urlMatch[0] : candidate;
+
+  try {
+    const parsed = new URL(extracted);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      return parsed.toString();
+    }
+  } catch {
+    // Fall back to default URL
+  }
+  return fallback;
+}
+
+export const GOOGLE_APPS_SCRIPT_WEB_APP_URL = sanitizeGasUrl(
+  envVars.VITE_GAS_WEB_APP_URL,
+  DEFAULT_GAS_WEB_APP_URL
+);
 // Client Information, Billing & Usage dedicated script URL (isolated from Ultimate Sheet)
-export const GOOGLE_APPS_SCRIPT_CLIENT_USAGE_BILLING_URL = 'https://script.google.com/macros/s/AKfycbwnTipPI0OqpJdmgJa5q7ZgPit0jyIVvxFamdbC8pTVpYslchy2vfoOYdD_Po-8QsAE/exec';
+export const GOOGLE_APPS_SCRIPT_CLIENT_USAGE_BILLING_URL = sanitizeGasUrl(
+  envVars.VITE_GAS_BILLING_URL,
+  DEFAULT_GAS_BILLING_URL
+);
 
 export interface AppConfiguration {
   envName: 'development' | 'testing' | 'production';

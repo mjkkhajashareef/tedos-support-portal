@@ -13,6 +13,8 @@ import { BottomNavigation } from '../navigation/BottomNavigation';
 import { InteractiveDemoGuide } from '../common/InteractiveDemoGuide';
 import { GoogleReviewFeedbackModal } from '../common/GoogleReviewFeedbackModal';
 import { DataBackupRestoreModal } from '../common/DataBackupRestoreModal';
+import { BrandFooter } from '../common/BrandFooter';
+import { SystemToastStack } from '../common/SystemToastStack';
 import { TRANSLATIONS } from '../../i18n/translations';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -32,7 +34,13 @@ import {
   CheckCircle2,
   LayoutGrid,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Clock,
+  ClipboardPen,
+  CalendarClock,
+  Ticket,
+  Briefcase,
+  Receipt
 } from 'lucide-react';
 
 interface AppShellProps {
@@ -109,6 +117,12 @@ export const AppShell: React.FC<AppShellProps> = ({ children, id }) => {
 
   // Helper lists for the "More" menu on mobile
   const moreItems = [
+    { id: ModuleId.SHIFT_MANAGEMENT, label: t.shiftManagement, icon: Clock, color: 'text-blue-600 bg-blue-50' },
+    { id: ModuleId.DAILY_WORK_LOG, label: t.dailyWorkLog, icon: ClipboardPen, color: 'text-emerald-600 bg-emerald-50' },
+    { id: ModuleId.WORK_LOG_HISTORY, label: isUrdu ? 'ورک لاگ ہسٹری' : 'Work Log History', icon: CalendarClock, color: 'text-indigo-600 bg-indigo-50' },
+    { id: ModuleId.TICKETS, label: t.ticketCenter, icon: Ticket, color: 'text-amber-600 bg-amber-50' },
+    { id: ModuleId.FOLLOW_UP, label: t.followUps, icon: CalendarClock, color: 'text-teal-600 bg-teal-50' },
+    { id: ModuleId.MY_CLIENTS, label: isUrdu ? 'میرے کلائنٹس' : 'My Assigned Clients', icon: Users, color: 'text-blue-600 bg-blue-50' },
     { id: ModuleId.COO_DASHBOARD, label: t.cooOperations, icon: ShieldAlert, color: 'text-purple-600 bg-purple-50' },
     {
       id: ModuleId.OVER_SERVICE,
@@ -120,6 +134,8 @@ export const AppShell: React.FC<AppShellProps> = ({ children, id }) => {
     { id: ModuleId.CLIENTS, label: t.clients, icon: Users, color: 'text-indigo-600 bg-indigo-50' },
     { id: ModuleId.TRAINING, label: t.trainingResources, icon: GraduationCap, color: 'text-teal-600 bg-teal-50' },
     { id: ModuleId.WHATSAPP, label: t.whatsappAutomation, icon: MessageSquareCode, color: 'text-emerald-600 bg-emerald-50' },
+    { id: ModuleId.PAYROLL, label: isUrdu ? 'پے رول و حاضری' : 'Payroll & Attendance', icon: Briefcase, color: 'text-slate-700 bg-slate-100' },
+    { id: ModuleId.CLIENT_USAGE_BILLING, label: isUrdu ? 'کلائنٹ بلنگ و استعمال' : 'Client Details & Usage', icon: Receipt, color: 'text-emerald-600 bg-emerald-50' },
     { id: ModuleId.REPORTS, label: t.reportsAnalytics, icon: BarChart3, color: 'text-blue-600 bg-blue-50' },
     { id: ModuleId.NOTIFICATIONS, label: t.notifications, icon: Bell, color: 'text-amber-600 bg-amber-50' },
     { id: ModuleId.AI_ASSISTANT, label: t.aiAssistant, icon: Sparkles, color: 'text-purple-600 bg-purple-50' },
@@ -144,6 +160,9 @@ export const AppShell: React.FC<AppShellProps> = ({ children, id }) => {
           } p-4 sm:p-6 md:p-8`}
         >
           {children}
+          {currentUser && currentModule !== ModuleId.LOGIN && (
+            <BrandFooter className="mt-8 rounded-2xl border border-md-surface-variant/60" />
+          )}
         </main>
 
         {/* Quick Link Direct Selector & Submit Widget (Adjustable / Hideable per req #4) */}
@@ -290,6 +309,9 @@ export const AppShell: React.FC<AppShellProps> = ({ children, id }) => {
           <BottomNavigation onOpenMoreMenu={() => setIsMoreMenuOpen(true)} />
         )}
       </div>
+
+      {/* Global Live Toast Notification Stack */}
+      <SystemToastStack />
 
       {/* Global Interactive Demo & Software Walkthrough Guide Modal */}
       <InteractiveDemoGuide />

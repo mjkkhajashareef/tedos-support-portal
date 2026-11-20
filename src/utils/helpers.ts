@@ -4,7 +4,7 @@
  */
 
 import { ACTIVE_CONFIG, ACTIVE_ENV, CONFIG } from '../config/appConfig';
-import { SupportClient, ClientLifecycleStatus } from '../types';
+import { SupportClient, ClientLifecycleStatus, WorkLogEntry } from '../types';
 
 /**
  * ----------------------------------------------------
@@ -463,6 +463,65 @@ export const isValidProofLink = (link?: string): boolean => {
 };
 
 /**
+ * Returns local calendar date formatted as YYYY-MM-DD (avoids UTC offset yesterday bug in IST 00:00–05:30 AM)
+ */
+export const getLocalDateString = (d: Date = new Date()): string => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Returns local calendar date shifted by daysDelta (e.g., -1 for yesterday, +1 for tomorrow)
+ */
+export const getLocalDateOffsetString = (daysDelta: number, baseDate: Date = new Date()): string => {
+  const d = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() + daysDelta);
+  return getLocalDateString(d);
+};
+
+/**
+ * Single authoritative predicate for whether a work log requires a pending proof link.
+ * Enforces TE 10-minute rule, ignores manager-approved logs, and isolates Support Executives to own logs.
+ */
+export const isLogPendingProof = (
+  log: WorkLogEntry | null | undefined,
+  currentUser?: { role?: string; name?: string; employeeId?: string } | null
+): boolean => {
+  if (!log) return false;
+  if (log.approvalStatus === 'Approved' || log.approvalStatus === 'Rejected') return false;
+
+  const rawProof = (log.proofLink || '').trim();
+  if (
+    rawProof &&
+    (/\b(approved|done|ok)\b/i.test(rawProof) ||
+      rawProof.includes('Approved by') ||
+      isValidProofLink(rawProof))
+  ) {
+    return false;
+  }
+
+  if (currentUser?.role === 'Support Executive') {
+    const execLower = (currentUser.name || '').trim().toLowerCase();
+    const firstToken = execLower.split(/\s+/)[0] || '';
+    const empId = (currentUser.employeeId || '').trim().toLowerCase();
+    const logExec = (log.executiveName || (log as any).supportName || '').trim().toLowerCase();
+    const logTeId = (log.teId || '').trim().toLowerCase();
+    const matchesExec =
+      (execLower && (logExec === execLower || logExec.includes(execLower) || execLower.includes(logExec))) ||
+      (firstToken && logExec.includes(firstToken)) ||
+      (empId && logTeId === empId);
+    if (!matchesExec) return false;
+  }
+
+  const duration = Number(log.durationMinutes) || 0;
+  if (duration <= 10) return false;
+
+  if (log.isProofPending === true || rawProof === 'PENDING') return true;
+  return !rawProof || !isValidProofLink(rawProof);
+};
+
+/**
  * Parses time string to total seconds handling 12h AM/PM or 24h formats
  */
 export const parseTimeToSeconds = (timeStr: string): number => {
@@ -726,7 +785,7 @@ export const mapGasClientToSupportClient = (raw: GasClientRaw, index: number): S
     subscriptions: planVal ? [{
       id: `sub_${teId}`,
       plan: planVal,
-      startDate: new Date().toISOString().split('T')[0],
+      startDate: getLocalDateString(),
       endDate: '2027-12-31',
       status: 'Active'
     }] : [],
@@ -738,7 +797,7 @@ export const mapGasClientToSupportClient = (raw: GasClientRaw, index: number): S
     assignments: assignedSup ? [{
       userId: assignedSup,
       role: 'Support Executive',
-      assignedDate: new Date().toISOString().split('T')[0]
+      assignedDate: getLocalDateString()
     }] : [],
     enterpriseHooks: [],
     assignedExecutive: assignedSup || 'Unassigned',
@@ -746,7 +805,7 @@ export const mapGasClientToSupportClient = (raw: GasClientRaw, index: number): S
       version: 'v4.2.0',
       licenseType: planVal || 'Standard',
       expiryDate: '2027-12-31',
-      lastBackupDate: new Date().toISOString().split('T')[0]
+      lastBackupDate: getLocalDateString()
     },
     healthStatus: effectiveStatusText.includes('connected') || effectiveStatusText.includes('compet') ? 95 : effectiveStatusText.includes('not answering') ? 65 : 85,
     recentActivityTimestamp: new Date().toISOString(),
@@ -788,7 +847,13 @@ export const fetchClientsFromGAS = async (endpoint = CONFIG.apiEndpoint): Promis
       throw new Error(`Google Apps Script returned HTTP ${response.status}`);
     }
 
-    const data: GasClientsResponse = await response.json();
+    const rawText = await response.text();
+    const trimmedText = rawText.trim();
+    if (!trimmedText || trimmedText.startsWith('<')) {
+      throw new Error(`Unexpected non-JSON HTML response from ${targetUrl}`);
+    }
+
+    const data: GasClientsResponse = JSON.parse(trimmedText);
     if (!data.success || !Array.isArray(data.clients)) {
       Logger.warn('fetchClientsFromGAS', 'Unexpected response payload from GAS', data);
       return [];

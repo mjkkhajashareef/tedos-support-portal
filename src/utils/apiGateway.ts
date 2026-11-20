@@ -4,6 +4,7 @@
  */
 
 import { SupportClient, Ticket, WorkLogEntry, FollowUpTracker, AppNotification, User, UserCreate, UserUpdate } from '../types';
+import { GOOGLE_APPS_SCRIPT_WEB_APP_URL } from '../config/appConfig';
 
 /**
  * Enterprise Environment Enum
@@ -621,8 +622,7 @@ export class TedosApiGatewayService {
 /**
  * Concrete implementation of IAppsScriptAdapter that makes live fetch requests.
  */
-const DIRECT_GAS_FALLBACK_URL =
-  'https://script.google.com/macros/s/AKfycbxhbrnIQMIFHpZGXxq2Q2xnPJLPQtnCpDbDXFIOBPeWo6vulj2jEiWWrVlonr6dHa_M/exec';
+const DIRECT_GAS_FALLBACK_URL = GOOGLE_APPS_SCRIPT_WEB_APP_URL;
 
 export class AppsScriptHttpAdapter implements IAppsScriptAdapter {
   private webAppUrl: string;
@@ -728,6 +728,29 @@ export class AppsScriptHttpAdapter implements IAppsScriptAdapter {
       params.append('token', security.authToken);
     }
 
+    const normalizeApiResponse = <T,>(raw: any): ApiResponse<T> => {
+      if (!raw || typeof raw !== 'object') {
+        return {
+          success: false,
+          message: 'Empty response from Google Apps Script gateway',
+          version: ApiVersion.V1,
+          timestamp: new Date().toISOString()
+        };
+      }
+      const data =
+        raw.data !== undefined
+          ? raw.data
+          : (raw.clients || raw.tickets || raw.workLogs || raw.followUps || raw.users || raw.notifications);
+      return {
+        success: Boolean(raw.success),
+        message: raw.message || (raw.success ? 'OK' : 'Request failed'),
+        data: data as T,
+        version: raw.version || ApiVersion.V1,
+        timestamp: raw.timestamp || new Date().toISOString(),
+        errorCode: raw.errorCode
+      };
+    };
+
     const fetchUrl = `${this.webAppUrl}?${params.toString()}`;
     try {
       const response = await fetch(fetchUrl, {
@@ -737,7 +760,8 @@ export class AppsScriptHttpAdapter implements IAppsScriptAdapter {
 
       const contentType = response.headers.get('content-type') || '';
       if (response.ok && contentType.includes('application/json')) {
-        return (await response.json()) as ApiResponse<TResponse>;
+        const parsed = await response.json();
+        return normalizeApiResponse<TResponse>(parsed);
       }
     } catch {
       // Fallback to direct Google Apps Script URL when running on static Netlify
@@ -748,7 +772,8 @@ export class AppsScriptHttpAdapter implements IAppsScriptAdapter {
     if (!directRes.ok) {
       throw new Error(`HTTP Error: ${directRes.status} ${directRes.statusText}`);
     }
-    return (await directRes.json()) as ApiResponse<TResponse>;
+    const directParsed = await directRes.json();
+    return normalizeApiResponse<TResponse>(directParsed);
   }
 
   public async post<TResponse = any, TPayload = any>(path: string, payload: TPayload, security: SecurityContext): Promise<ApiResponse<TResponse>> {
@@ -816,6 +841,25 @@ export class AppsScriptHttpAdapter implements IAppsScriptAdapter {
       body: payload
     };
 
+    const normalizeResponse = (parsed: any): ApiResponse<TResponse> => {
+      if (!parsed || typeof parsed !== 'object') {
+        return {
+          success: false,
+          message: 'Invalid response from Google Apps Script',
+          version: ApiVersion.V1,
+          timestamp: new Date().toISOString()
+        };
+      }
+      return {
+        success: Boolean(parsed.success),
+        message: parsed.message || (parsed.success ? 'Synchronized with Google Sheets' : parsed.error || 'Sync failed'),
+        data: (parsed.data !== undefined ? parsed.data : parsed) as TResponse,
+        version: parsed.version || ApiVersion.V1,
+        timestamp: parsed.timestamp || new Date().toISOString(),
+        errorCode: parsed.errorCode
+      };
+    };
+
     try {
       const response = await fetch(this.webAppUrl, {
         method: 'POST',
@@ -828,10 +872,10 @@ export class AppsScriptHttpAdapter implements IAppsScriptAdapter {
 
       const contentType = response.headers.get('content-type') || '';
       if (response.ok && contentType.includes('application/json')) {
-        return (await response.json()) as ApiResponse<TResponse>;
+        return normalizeResponse(await response.json());
       }
     } catch {
-      // Fallback to direct Google Apps Script URL with text/plain to avoid CORS preflight on Netlify
+      // Fallback to direct Google Apps Script URL with text/plain to avoid CORS preflight on static hosts
     }
 
     const directRes = await fetch(DIRECT_GAS_FALLBACK_URL, {
@@ -847,7 +891,12 @@ export class AppsScriptHttpAdapter implements IAppsScriptAdapter {
       throw new Error(`HTTP Error: ${directRes.status} ${directRes.statusText}`);
     }
 
-    return (await directRes.json()) as ApiResponse<TResponse>;
+    const rawText = await directRes.text();
+    try {
+      return normalizeResponse(JSON.parse(rawText));
+    } catch {
+      return normalizeResponse({ success: directRes.ok, message: rawText.slice(0, 120) });
+    }
   }
 }
 

@@ -10,6 +10,7 @@ import { MaterialCard } from '../common/MaterialCard';
 import { AIHook } from '../common/AIHook';
 import { openWhatsAppChat, detectClientBrand, sendInteraktMessage, fetchInteraktConfig, InteraktConfig } from '../../utils/whatsappUtils';
 import { exportWorkLogsToCSV, printDailyWorkLogReport } from '../../utils/exportUtils';
+import { getLocalDateString } from '../../utils/helpers';
 import {
   GraduationCap,
   MessageSquareCode,
@@ -299,7 +300,7 @@ export const ModuleShellView: React.FC<ModuleShellViewProps> = ({ id }) => {
           </button>
           <button
             type="button"
-            onClick={() => printDailyWorkLogReport(workLogs, new Date().toISOString().split('T')[0], currentUser?.name)}
+            onClick={() => printDailyWorkLogReport(workLogs, getLocalDateString(), currentUser?.name)}
             className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
           >
             <Printer size={14} />

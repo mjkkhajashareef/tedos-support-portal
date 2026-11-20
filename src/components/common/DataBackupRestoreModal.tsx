@@ -28,6 +28,7 @@ import {
 } from '../../utils/exportUtils';
 import { offlineDb } from '../../utils/indexedDb';
 import { motion } from 'motion/react';
+import { getLocalDateString } from '../../utils/helpers';
 
 interface DataBackupRestoreModalProps {
   isOpen: boolean;
@@ -71,7 +72,7 @@ export const DataBackupRestoreModal: React.FC<DataBackupRestoreModalProps> = ({
 
   if (!isOpen) return null;
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateString();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BrandLogo } from '../common/BrandLogo';
+import { BrandFooter } from '../common/BrandFooter';
 import { LanguageToggle } from '../common/LanguageToggle';
 import { TRANSLATIONS } from '../../i18n/translations';
 
@@ -305,6 +306,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ id }) => {
         <ShieldCheck size={14} className="text-emerald-500" />
         <span>Enterprise 256-bit AES Authenticated • RBAC Protected</span>
       </div>
+
+      <BrandFooter className="mt-6 rounded-2xl border border-md-surface-variant/60" />
     </div>
   );
 };

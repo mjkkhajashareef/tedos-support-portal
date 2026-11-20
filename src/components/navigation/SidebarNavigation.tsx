@@ -26,7 +26,8 @@ import {
   BookOpen,
   Compass,
   Wand2,
-  Receipt
+  Receipt,
+  Clock
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { ModuleId } from '../../types';
@@ -71,6 +72,7 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ id }) => {
     { id: ModuleId.COO_DASHBOARD, label: t.cooOperations, icon: ShieldAlert },
     { id: ModuleId.SUPPORT_EXECUTIVE_DASHBOARD, label: t.executiveWorkspace, icon: Briefcase },
     { id: ModuleId.DAILY_WORK_LOG, label: t.dailyWorkLog, icon: ClipboardPen },
+    { id: ModuleId.SHIFT_MANAGEMENT, label: t.shiftManagement, icon: Clock },
     {
       id: ModuleId.WORK_LOG_HISTORY,
       label: language === 'ur' ? 'ورک لاگ ہسٹری و کمانڈ' : 'Work Log History',

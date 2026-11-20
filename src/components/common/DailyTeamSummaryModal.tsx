@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { openWhatsAppChat } from '../../utils/whatsappUtils';
+import { getLocalDateString } from '../../utils/helpers';
 
 import { UserRole } from '../../types';
 
@@ -41,7 +42,7 @@ export const DailyTeamSummaryModal: React.FC<DailyTeamSummaryModalProps> = ({
   const currentExecName = (currentUser?.name || '').trim().toLowerCase();
   const currentEmpId = (currentUser?.employeeId || '').trim().toLowerCase();
 
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayStr = useMemo(() => getLocalDateString(), []);
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [dateMode, setDateMode] = useState<'today' | 'custom'>('today');
   const [copied, setCopied] = useState(false);

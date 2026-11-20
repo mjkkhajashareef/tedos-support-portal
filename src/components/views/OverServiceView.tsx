@@ -7,6 +7,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { OverServiceEntry, UserRole } from '../../types';
 import { MaterialCard } from '../common/MaterialCard';
+import { getLocalDateString } from '../../utils/helpers';
 import {
   Rocket,
   MessageSquare,
@@ -39,7 +40,7 @@ export const OverServiceView: React.FC<{ id?: string }> = ({ id }) => {
   const sourceClients = allClients && allClients.length > 0 ? allClients : clients;
 
   const [selectedClientId, setSelectedClientId] = useState<string>(sourceClients[0]?.id || '');
-  const [executiveName, setExecutiveName] = useState<string>(currentUser?.name || 'Asad');
+  const [executiveName, setExecutiveName] = useState<string>(currentUser?.name || 'Support Executive');
   const [dltSms, setDltSms] = useState<string>('Active - Entity & Template Verified');
   const [dltEntityId, setDltEntityId] = useState<string>('');
   const [paymentGateway, setPaymentGateway] = useState<string>('Active - Live Merchant Connected');
@@ -86,8 +87,8 @@ export const OverServiceView: React.FC<{ id?: string }> = ({ id }) => {
     addOverService({
       clientId: selectedClientId || `CLI-${Date.now()}`,
       clientName,
-      date: new Date().toISOString().split('T')[0],
-      executiveName: executiveName || currentUser?.name || 'Asad',
+      date: getLocalDateString(),
+      executiveName: executiveName || currentUser?.name || 'Support Executive',
       dltSms,
       dltEntityId,
       paymentGateway,
@@ -165,7 +166,7 @@ export const OverServiceView: React.FC<{ id?: string }> = ({ id }) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `TEDOS_Over_Service_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `TEDOS_Over_Service_${getLocalDateString()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };

@@ -32,7 +32,14 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ModuleId, WorkLogEntry, UserRole } from '../../types';
-import { calculateDurationFromTimes, detectSoftwareUsage, isValidProofLink, formatTimeHHMMSS } from '../../utils/helpers';
+import {
+  calculateDurationFromTimes,
+  detectSoftwareUsage,
+  isValidProofLink,
+  formatTimeHHMMSS,
+  getLocalDateString,
+  isLogPendingProof
+} from '../../utils/helpers';
 import { CONFIG } from '../../config/appConfig';
 import { DailyTeamSummaryModal } from '../common/DailyTeamSummaryModal';
 import { authService } from '../../utils/auth';
@@ -64,22 +71,11 @@ export const DailyWorkLogView: React.FC<DailyWorkLogViewProps> = ({ id }) => {
 
   // Count pending proof links for this executive
   const pendingCount = useMemo(() => {
-    const currentExecName = (currentUser?.name || '').trim().toLowerCase();
-    const allLogs = [...workLogs, ...(tickets?.flatMap(t => t.workLogs || []) || [])];
-    return allLogs.filter(log => {
-      if (!log || log.approvalStatus === 'Approved') return false;
-      if (currentExecName) {
-        const logExec = (log.executiveName || (log as any).supportName || '').trim().toLowerCase();
-        if (!logExec.includes(currentExecName) && !currentExecName.includes(logExec)) {
-          return false;
-        }
-      }
-      return (
-        log.isProofPending === true ||
-        log.proofLink === 'PENDING' ||
-        (!log.proofLink && Number(log.durationMinutes) > 10)
-      );
-    }).length;
+    const map = new Map<string, WorkLogEntry>();
+    [...workLogs, ...(tickets?.flatMap((t) => t.workLogs || []) || [])].forEach((log) => {
+      if (log && log.id && !map.has(log.id)) map.set(log.id, log);
+    });
+    return Array.from(map.values()).filter((log) => isLogPendingProof(log, currentUser)).length;
   }, [workLogs, tickets, currentUser]);
 
   // 1) Select Client (Restored from activeLogSession if user navigated away, or globalSelectedClientId)
@@ -157,16 +153,17 @@ export const DailyWorkLogView: React.FC<DailyWorkLogViewProps> = ({ id }) => {
   const [strongReason, setStrongReason] = useState<string>(() => activeLogSession?.strongReason || '');
 
   // Additional Submission & Status States
-  const [logDate, setLogDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [logDate, setLogDate] = useState<string>(() => getLocalDateString());
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const isSubmittingRef = useRef<boolean>(false);
   const [showSuccessAlert, setShowSuccessAlert] = useState<boolean>(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   const sessionUser = currentUser || authService.getSession()?.user;
-  const executiveName = (sessionUser?.name && sessionUser.name !== 'Support Executive' && sessionUser.name !== 'Executive')
-    ? sessionUser.name
-    : 'Asad';
+  const executiveName =
+    sessionUser?.name && sessionUser.name !== 'Executive'
+      ? sessionUser.name
+      : 'Support Executive';
   const teId = sessionUser?.employeeId || 'TE-SUP-101';
 
   // Selected client details
